@@ -152,23 +152,11 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
         
           
         rm(roads, nasadem)
-  # cropped_roads %>%      
-  # st_cast("MULTIPOINT")-> cropped_road_points
-  # 
-  # 
-  # cropped_roads %>%
-  #   st_simplify(dTolerance = 100) %>%     
-  #   st_cast("MULTIPOINT") -> sim_cropped_road_points
-
   
-  # sim1 <- sim_cropped_road_points
-  # 
-  # sim1 <- sim1 %>% st_cast("POINT")
-  # plot(sim1)
-
-
-  #since size is vectorized, need to make size a function of length
-  
+  # save cropped parks for later use              
+    st_write(obj = parks,
+             dsn = "data/output/sampling_options.gpkg")
+    
   # Calculate movement cost
   #https://www.sciencedirect.com/science/article/pii/S2352711019302341#fig2
   
@@ -324,8 +312,197 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
     gc()
     plot(movecost_rast_out)
     
+################################################################################
+
+  # Looking at environmental gradient across focal sites  
+        
+  movecost_rast_out <- rast("data/output/distance_h_to_sites.tif")
+  sampling_locations <- st_read("data/output/sampling_options.gpkg")
+
     
-
-
+  # get climate data
     
+    library(ClimDatDownloadR)
+    
+    ClimDatDownloadR::Chelsa.Clim.download(save.location = "data/climate/",
+                                           parameter = "bio",
+                                           bio.var = c(1,12,15))
+    
+  # read in data
+    climate <- terra::rast(list.files("data/climate/bio/bio_V1.2/",
+                                      full.names = TRUE))
+    
+  #crop climate data
 
+    climate %>%
+      crop(y = st_transform(sampling_locations,crs = crs(climate)))-> climate
+    
+    climate %>%
+      terra::project(y = crs(movecost_rast_out)) -> climate
+    
+  # extract values within the potential sampling locations
+    
+  clim_vals <-
+    terra::extract(climate,
+                   y = vect(sampling_locations),
+                   cells=TRUE,
+                   xy=TRUE)
+  
+  clim_vals %>%
+    rename(bio1 = CHELSA_bio10_01_V1.2,
+           bio12 = CHELSA_bio10_12_V1.2,
+           bio15 = CHELSA_bio10_15_V1.2) %>%
+    dplyr::select(-ID) -> clim_vals
+  
+  
+  # visualize climate vals
+  
+    cor(na.omit(clim_vals[1:3]))# all pretty independent
+    
+    bio1_v_12 <-
+    ggplot(data = clim_vals,
+           mapping = aes(x = bio1, y = bio12)) +
+      geom_point()
+    
+    bio1_v_15 <-
+    ggplot(data = clim_vals,
+           mapping = aes(x = bio1, y = bio15)) +
+      geom_point()
+    
+    bio12_v_15 <-
+    ggplot(data = clim_vals,
+           mapping = aes(x = bio12, y = bio15)) +
+      geom_point()
+    
+    bio1_v_12v_2 <-
+      ggplot(data = clim_vals,
+             mapping = aes(x = bio1, y = bio12)) +
+      geom_point(aes(col=bio15))
+    bio1_v_12v_2
+    
+    
+    #save plots
+
+      ggsave(filename = file.path("figures/bio1_v_12.jpg"),
+             plot = bio1_v_12)
+      
+      ggsave(filename = file.path("figures/bio1_v_15.jpg"),
+             plot = bio1_v_15)
+      
+      ggsave(filename = file.path("figures/bio12_v_15.jpg"),
+             plot = bio12_v_15)
+      
+    #3d plots 
+      #https://stackoverflow.com/questions/50027798/in-r-rgl-how-to-print-shadows-of-points-in-plot3d
+      library(rgl)
+      plot3d(x = clim_vals$bio1,
+             y = clim_vals$bio12,
+             z = clim_vals$bio15,
+             xlab = "Temp",
+             ylab = "Precip",
+             zlab = "Prec. Seasonality")
+      
+      show2d({
+        par(mar=c(0,0,0,0))
+        plot(x = clim_vals$bio1,
+             y = clim_vals$bio12, 
+             col = "grey")
+      })
+
+#############################################
+  
+  #Dividing up sites
+      
+      domain <- read_sf("temp/domain.gpkg")
+      
+  #v1 clustering
+      
+  library(cluster)    
+
+  clim_vals <- na.omit(clim_vals)    
+      
+  k_clusters <- kmeans(x = scale(clim_vals[,1:3]),
+                       centers = 16,nstart = 100,
+                       iter.max = 1000000)
+  
+  plot3d(x = clim_vals$bio1,
+         y = clim_vals$bio12,
+         z = clim_vals$bio15,
+         xlab = "Temp",
+         ylab = "Precip",
+         zlab = "Prec. Seasonality",
+         col = rainbow(n = length(unique(as.numeric(k_clusters$cluster))))[as.numeric(k_clusters$cluster)])
+  
+  k_raster <- setValues(climate[[1]],NA)
+
+  k_raster[clim_vals$cell] <- k_clusters$cluster
+
+  k_raster %>%
+    as.factor() %>%
+  as.data.frame(xy = TRUE) %>%
+    na.omit()%>%
+    rename(cluster = CHELSA_bio10_01_V1.2)%>%
+    mutate(cluster = as.factor(cluster))-> k_df
+
+  ggplot(data = k_df) +
+    geom_tile(aes(x = x, y = y, fill = cluster))+
+    scale_fill_discrete()+
+    geom_sf(data = domain,fill=NA)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  k_clusters2 <- kmeans(x = scale(clim_vals[,c(1:3,5:6)]),
+                       centers = 16,nstart = 100,
+                       iter.max = 1000000)
+  
+  plot3d(x = clim_vals$bio1,
+         y = clim_vals$bio12,
+         z = clim_vals$bio15,
+         xlab = "Temp",
+         ylab = "Precip",
+         zlab = "Prec. Seasonality",
+         col = rainbow(n = length(unique(as.numeric(k_clusters2$cluster))))[as.numeric(k_clusters2$cluster)])
+  
+  k_raster2 <- setValues(climate[[1]],NA)
+  
+  k_raster2[clim_vals$cell] <- k_clusters2$cluster
+  
+  k_raster2 %>%
+    as.factor() %>%
+    as.data.frame(xy = TRUE) %>%
+    na.omit()%>%
+    rename(cluster = CHELSA_bio10_01_V1.2)%>%
+    mutate(cluster = as.factor(cluster))-> k_df2
+  
+  ggplot(data = k_df2) +
+    geom_tile(aes(x = x, y = y, fill = cluster))+
+    scale_fill_discrete()+
+    geom_sf(data = domain,fill=NA)
+  
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+
+  pam_clusters <- pam(x = scale(clim_vals[,1:3]),
+                      k = 9,
+                      keep.diss = FALSE,
+                      diss = FALSE,
+                      metric = "euclidean",
+                      keep.data = FALSE)
+  
+  ?pam
+  
+  plot3d(x = clim_vals$bio1,
+         y = clim_vals$bio12,
+         z = clim_vals$bio15,
+         xlab = "Temp",
+         ylab = "Precip",
+         zlab = "Prec. Seasonality",
+         col = rainbow(n = length(unique(as.numeric(pam_clusters$clustering))))[as.numeric(pam_clusters$clustering)])
+  
+  
+  
+  # going to manually split up data, since I couldn't find a nice package
+      
+      
+      
+      
+            
