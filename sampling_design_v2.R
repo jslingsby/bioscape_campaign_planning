@@ -178,6 +178,15 @@ gc()
 insol_slope <- rast("data/output/insol_slope.tif")
 stars_slope <- rast("data/output/stars_slope.tif")
 
+#make a polygon of sites that have a reasonable slope in each raster (< 30 degrees)
+
+plot(insol_slope)
+insol_slope %>%
+  mask(mask = insol_slope<30) %>%
+  as.polygons()->insol_poly
+  plot()
+
+
 #################
 
   plot(sampling_near_roads)  
@@ -185,9 +194,18 @@ stars_slope <- rast("data/output/stars_slope.tif")
       
     #put it all together
     sampling_near_roads %>%
-    st_intersection(y = st_make_valid(focal_sites_good_ndvi))%>%
+      
+      #only include sites with an ndvi > 0.2
+    st_intersection(y = st_make_valid(focal_sites_good_ndvi)) %>%
+      
+      #only include sites that have a slope less than
+    st_intersection(st_intersection()  
     st_union()%>%
+      
+      
       plot()
+    
+    
 
     #next, exclude sites with slopes above cutoff in both slope rasters
     
