@@ -259,10 +259,246 @@ crs(time_to_sites)@projargs==crs(domain)@projargs
     st_union() -> acceptable_sites
 
     plot(acceptable_sites)
+  
+    acceptable_sites%>%
+    st_write(dsn = "data/output/acceptable_sites.shp")  
+    
+  rm(focal_sites_good_ndvi,sampling_locations,sampling_near_roads,slope__poly_buffered,time_to_sites)  
     
 
+#########################################################
+    
+  #Kitchen sink of clustering 
+    
+  # Get static files
+    
+    env_files %>%
+      filter(tag == "processed_static")%>%
+      pull(file_name)%>%
+      robust_pb_download(dest = "data/static/",
+                         repo = "AdamWilsonLab/emma_envdata",
+                         tag ="processed_static", 
+                         max_attempts = 10,
+                         sleep_time = 10)
+  
+  # Get most recend NDVI, time since fire
+
+      # pull most recent NDVI
+      
+      env_files %>%
+        filter(tag == "raw_ndvi_viirs") %>%
+        arrange(timestamp) %>%
+        filter(file_name != "log.csv") %>%
+        slice((n()-11):n()) %>%
+        pull(file_name) %>%
+        robust_pb_download(dest = "temp/recent_ndvi",
+                           repo = "AdamWilsonLab/emma_envdata",
+                           tag = "raw_ndvi_viirs",
+                           overwrite = TRUE,
+                           max_attempts = 10,
+                           sleep_time = 30)
+      
+      # load ndvi and do necessary transforms
+      recent_ndvi <- ((terra::rast(list.files("temp/recent_ndvi/",full.names = TRUE))/100)-1)
+      
+      plot(recent_ndvi)
+      
+      #take mean of non-na values (since odds are ndvi will only be missing for one time step)
+      recent_ndvi <- terra::app(x = recent_ndvi,
+                         fun = function(x){mean(na.omit(x))})
+
+  
+      # pull most recent fire
+      
+      env_files %>%
+        filter(tag == "processed_most_recent_burn_dates") %>%
+        arrange(timestamp) %>%
+        filter(file_name != "log.csv") %>%
+        slice(n()) %>%
+        pull(file_name) %>%
+        robust_pb_download(dest = "temp/recent_burn_dates",
+                           repo = "AdamWilsonLab/emma_envdata",
+                           tag = "processed_most_recent_burn_dates",
+                           overwrite = TRUE,
+                           max_attempts = 10,
+                           sleep_time = 30)
+  
+        
+      #load most recent fire dates
+      recent_fires <- terra::rast(list.files("temp/recent_burn_dates/",full.names = TRUE))
+      
+      # assign missing dates to the oldest date in the raster (since we know the vegetation is at least this old)
+      recent_fires[is.na(recent_fires)] <-
+        recent_fires %>%
+        values()%>%
+        na.omit()%>%
+        min()
+      
+    list.files(path = "data/static/")  
+
+  unique(values(all_rast[["SA_NLC_2020_GEO"]]))
+    
+all_layers <-          
+c( "alos_chili.tif",
+   "alos_mtpi.tif",
+   "alos_topodiversity.tif",
+   "CHELSA_bio10_01_V1.2.tif",
+   "CHELSA_bio10_02_V1.2.tif",
+   "CHELSA_bio10_03_V1.2.tif",
+   "CHELSA_bio10_04_V1.2.tif",
+   "CHELSA_bio10_05_V1.2.tif",
+   "CHELSA_bio10_06_V1.2.tif",
+   "CHELSA_bio10_07_V1.2.tif",
+   "CHELSA_bio10_08_V1.2.tif",
+   "CHELSA_bio10_09_V1.2.tif",
+   "CHELSA_bio10_10_V1.2.tif",
+   "CHELSA_bio10_11_V1.2.tif",
+   "CHELSA_bio10_12_V1.2.tif",
+   "CHELSA_bio10_13_V1.2.tif",
+   "CHELSA_bio10_14_V1.2.tif",
+   "CHELSA_bio10_15_V1.2.tif",
+   "CHELSA_bio10_16_V1.2.tif",
+   "CHELSA_bio10_17_V1.2.tif",
+   "CHELSA_bio10_18_V1.2.tif",
+   "CHELSA_bio10_19_V1.2.tif",
+   "CHELSA_prec_01_V1.2_land.tif",
+   "CHELSA_prec_07_V1.2_land.tif",
+   "MODCF_interannualSD.tif",
+   "MODCF_intraannualSD.tif",
+   "MODCF_meanannual.tif",
+   "MODCF_seasonality_concentration.tif",
+   "nasadem.tif",
+   "soil_EC_mS_m.tif",
+   "soil_Ext_K_cmol_kg.tif",
+   "soil_Ext_Na_cmol_kg.tif",
+   "soil_Ext_P_mg_kg.tif",
+   "soil_pH.tif",
+   "soil_Total_C_.tif",
+   "soil_Total_N_.tif") 
+
+
+      
+all_rast <- rast(paste("data/static/",all_layers,sep = ""))
+all_rast <- c(all_rast,recent_fires,recent_ndvi)
+all_rast
+
+for(i in 1:dim(all_rast)[3]){
+  
+  plot(all_rast[[i]],main = names(all_rast)[i])
+  plot(st_transform(domain,crs = crs(all_rast)),add=TRUE,color=NA)
+
+}
+
+library(corrplot)
+
+corrplot(corr = cor(na.omit(values(all_rast))))
+
+
+
+
+      
+  #things to add
+  
+    # static stuff
+    # time since fire
+    # ndvi
+    
+  env_files %>%
+    filter(tag == "processed_static")
+
+  clim_vals_domain <-
+    terra::extract(all_rast,
+                   y = vect(st_transform(x = domain,crs = crs(all_rast))),
+                   cells=TRUE,
+                   xy=TRUE)
+  
+  clim_vals_domain %>%
+    select(-ID)->clim_vals_domain
+  
+  clim_vals_domain %>%
+    na.omit()->clim_vals_domain
+
+  k_clusters_domain <- kmeans(x = clim_vals_domain%>%
+                                select(-x,-y,-cell)%>%
+                                scale(),
+                              centers = 20,
+                              nstart = 100,
+                              iter.max = 1000000)
+  
+  
+  k_raster_domain <- all_rast[[1]]
+  k_raster_domain[1:ncell(k_raster_domain)] <- NA
+  k_raster_domain[clim_vals_domain$cell] <- k_clusters_domain$cluster
+  
+plot(k_raster_domain)
+varnames(k_raster_domain)  <- "cluster"
+  
+k_raster_domain %>%
+  mask(vect(acceptable_sites)) %>%
+  as.factor() %>%
+  as.data.frame(xy = TRUE) %>%
+  na.omit()%>%
+  rename(cluster = alos_chili)%>%
+  mutate(cluster = as.factor(cluster))-> k_df_domain_masked  
+  
+k_raster_domain %>%
+  as.factor() %>%
+  as.data.frame(xy = TRUE) %>%
+  na.omit()%>%
+  rename(cluster = alos_chili)%>%
+  mutate(cluster = as.factor(cluster))-> k_df_domain
+
+k_raster_domain %>%
+  mask(vect(acceptable_sites)) %>%
+  as.factor() %>%
+  as.data.frame(xy = TRUE) %>%
+  na.omit()%>%
+  rename(cluster = alos_chili)%>%
+  mutate(cluster = as.factor(cluster))-> k_df_domain_masked
+
+
+ggplot(data = k_df_domain) +
+  geom_tile(aes(x = x, y = y, fill = cluster))+
+  scale_fill_discrete()+
+  geom_sf(data = st_transform(domain,crs = crs(k_raster_domain)),fill=NA)
+
+
+ggplot(data = k_df_domain) +
+  geom_tile(aes(x = x, y = y, fill = cluster))+
+  scale_fill_discrete()+
+  geom_sf(data = st_transform(acceptable_sites,crs = crs(k_raster_domain)),fill=NA)+
+  geom_sf(data = st_transform(domain,crs = crs(k_raster_domain)),fill=NA)
+
+ggplot(data = k_df_domain_masked) +
+  geom_tile(aes(x = x, y = y, fill = cluster))+
+  scale_fill_discrete()+
+  geom_sf(data = st_transform(domain,crs = crs(k_raster_domain)),fill=NA)
+
+
+k_df_domain %>%
+  ggplot()+
+  geom_histogram(aes(cluster),stat = "count",fill="grey",group = "domain")+
+  geom_histogram(data = k_df_domain_masked,mapping = aes(cluster),fill = "blue",stat = "count",group = "focal")+
+  scale_fill_manual(name="group",values=c("blue","grey"),labels=c("domain","focal"))
+
+?geom_histogram
+# try to get model running locally in docker
+
+
+    
+      
     
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
     
   
   
