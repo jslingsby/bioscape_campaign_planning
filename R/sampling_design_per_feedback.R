@@ -19,14 +19,22 @@ library(insol)
 source("R/get_park_polygons.R")
 source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_pb_download.R")
 
-# Get necessary data
-sampling_locations <- st_read("data/output/sampling_options.gpkg") %>% #these are parks in the domain
-  dplyr::select(-domain)
+#get domain
 
-sampling_near_roads <- st_read("data/output/sampling_options_near_roads.gpkg") #these are parks in the domain
+  domain <- read_sf("temp/domain.gpkg")
+  
+# Get parks in domain
+  
+  sampling_locations <- st_read("data/output/sampling_options.gpkg") %>% #these are parks in the domain
+    dplyr::select(-domain)
+  
+#get sampling near roads (<= 1 km ) in parks
+  
+  sampling_near_roads <- st_read("data/output/sampling_options_near_roads.gpkg")
 
-domain <- read_sf("temp/domain.gpkg")
+# get sites with ndvi > 0.2, slope < 30, within 2 hours of road, and near road
 
+  acceptable_sites <- st_read("data/output/acceptable_sites.gpkg")
 
 # Get an inventory of available data
 
@@ -55,25 +63,25 @@ env_files <- pb_list("AdamWilsonLab/emma_envdata")
           st_transform(crs = crs(recent_fires)) %>%
           vect() %>%
           terra::rasterize(y = recent_fires,
-                    touches = TRUE)-> rivers
+                    touches = TRUE) -> rivers
         
         wetlands %>%
           st_transform(crs = crs(recent_fires)) %>%
           vect() %>%
           terra::rasterize(y = recent_fires,
-                           touches = TRUE)-> wetlands
+                           touches = TRUE) -> wetlands
         
         c(wetlands,rivers) %>%
         app(function(x){
           if(any(!is.na(x))){1}else{NA}
-          })-> water
+          }) -> water
 
         #first, try distance over the  domain
-          water %>%
-          terra::distance() -> dist_from_water
+          # water %>%
+          # terra::distance() -> dist_from_water
 
-          terra::writeRaster(x = dist_from_water,
-                             filename = "data/output/distance_from_freshwater.tif")
+          # terra::writeRaster(x = dist_from_water,
+          #                    filename = "data/output/distance_from_freshwater.tif",overwrite=TRUE)
 
         
         dist_from_water <- rast("data/output/distance_from_freshwater.tif")
@@ -82,12 +90,11 @@ env_files <- pb_list("AdamWilsonLab/emma_envdata")
     # drought layers go back to 1981
      
     drought <- raster::raster("data/manual_downloads/drought/Global_SPEI12_2019.nc") #note: using raster because terra misses the projection     
-        drought_old <- raster::raster("data/manual_downloads/drought/Global_SPEI12_2015.nc") #note: using raster because terra misses the projection     
-        drought
-        drought_old
-        crs(drought)  
-    drought_terra<-rast(drought)
-    crs(drought_terra) <- crs(drought)
+
+    drought_terra <- terra::rast("data/manual_downloads/drought/Global_SPEI12_2019.nc")
+    terra::crs(drought_terra) <- terra::crs(drought)
+
+    #crs(drought_terra) <- crs(drought)
         
     recent_fires <- terra::rast(list.files("temp/recent_burn_dates/",full.names = TRUE))         
     
@@ -95,11 +102,13 @@ env_files <- pb_list("AdamWilsonLab/emma_envdata")
       terra::resample(y = recent_fires) -> drought_resamp
 
     plot(drought_resamp)
-    plot(domain%>%
+    
+    plot(drought_resamp[[1]])
+    plot(domain %>%
            st_transform(crs(recent_fires)),add=TRUE,color=NA)
     
     # terra::writeRaster(x = drought_resamp,
-    #                    filename = "data/output/2019_drought.tif")
+    #                    filename = "data/output/2019_drought.tif",overwrite=TRUE)
     
 ###########################################
     
@@ -137,10 +146,10 @@ env_files <- pb_list("AdamWilsonLab/emma_envdata")
 
 #assemble layers
     
-    recent_fires <- terra::rast(list.files("temp/recent_burn_dates/",full.names = TRUE))         
-    
+    recent_fires <- terra::rast(list.files("temp/recent_burn_dates/",full.names = TRUE))
+
     #Drought  
-    
+
       source("R/count_spei_anomalies.R")
       
       list.files(path = "data/manual_downloads/drought/",full.names = TRUE) %>%
@@ -176,10 +185,10 @@ env_files <- pb_list("AdamWilsonLab/emma_envdata")
                        xy=TRUE)
       
       clim_vals_domain %>%
-        select(-ID)->clim_vals_domain
+        select(-ID) -> clim_vals_domain
       
       clim_vals_domain %>%
-        na.omit()->clim_vals_domain
+        na.omit() -> clim_vals_domain
       
       k_clusters_domain <- kmeans(x = clim_vals_domain%>%
                                     select(-x,-y,-cell)%>%

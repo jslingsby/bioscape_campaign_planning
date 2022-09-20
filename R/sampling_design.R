@@ -84,7 +84,7 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
       st_intersection(y = parks %>%
                 st_buffer(10000))
 
-  # Buffer cropped roads to ~3km (this is the maximum walking distance to consider - we can change it later if needed).
+  # Buffer cropped roads to ~1km (this is the maximum walking distance to consider - we can change it later if needed).
   
     roads %>%
       dplyr::filter(FEAT_TYPE  %in%
@@ -101,7 +101,7 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
                         #"Track",
                         #"Slipway"
                         ) ) %>%
-      st_buffer(dist = 3000) -> road_buffer
+      st_buffer(dist = 1000) -> road_buffer
     
     road_buffer %>%
       st_union() -> road_buffer
@@ -158,12 +158,14 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
   
   # save cropped parks for later use              
     st_write(obj = parks,
-             dsn = "data/output/sampling_options.gpkg")
+             dsn = "data/output/sampling_options.gpkg",
+             append = FALSE)
     
   # save buffered roads for later use  
     
     st_write(obj = road_buffer,
-             dsn = "data/output/sampling_options_near_roads.gpkg")
+             dsn = "data/output/sampling_options_near_roads.gpkg",
+             append = FALSE)
     
     
   # Calculate movement cost
@@ -307,11 +309,11 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
       
     
 # Examine output
-    
+       
     # writeRaster(x = movecost_rast_out,
-    #             filename = "data/output/distance_h_to_sites.tif")
+    #             filename = "data/output/distance_h_to_sites.tif",overwrite=TRUE)
       
-# publish sampling distances as a raster      
+# publish sampling distances as a raster
 
     pb_upload(file = "data/output/distance_h_to_sites.tif",
               repo = "BioSCape-io/terrestrial_sampling",

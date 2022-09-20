@@ -30,21 +30,28 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
 # pull most recent NDVI
   
   env_files %>%
-    filter(tag == "raw_ndvi_viirs") %>%
-    arrange(timestamp) %>%
+    filter(tag == "raw_ndvi_modis") %>%
+    arrange(file_name) %>%
     filter(file_name != "log.csv") %>%
-    slice(n()) %>%
+    slice_tail(n = 12)%>%
     pull(file_name) %>%
     robust_pb_download(dest = "temp/recent_ndvi",
                        repo = "AdamWilsonLab/emma_envdata",
-                       tag = "raw_ndvi_viirs",
+                       tag = "raw_ndvi_modis",
                        overwrite = TRUE,
                        max_attempts = 10,
                        sleep_time = 30)
   
 # load ndvi and do necessary transforms  
+
   recent_ndvi <- ((terra::rast(list.files("temp/recent_ndvi/",full.names = TRUE))/100)-1)
-    
+  
+# take mean ndvi over the last months or so
+  
+  recent_ndvi <- terra::app(x = recent_ndvi,
+                            fun = function(x){mean(na.omit(x))})
+  
+  names(recent_ndvi) <- "NDVI"
 
 ###################################################
   
@@ -218,10 +225,19 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
     
 #################
 
-    #Let's make omit sites > 3 hours from the road
+    #Let's omit sites > 3 hours from the road
     
     time_to_sites <- rast("data/output/distance_h_to_sites.tif")
-    time_to_sites <- (time_to_sites < 3)
+
+    road_site_ndvis <-
+      terra::extract(x = time_to_sites,
+                     y =   sampling_near_roads %>%
+                       st_transform(crs = st_crs(time_to_sites)) %>%
+                       vect())
+    
+    hist(road_site_ndvis$distance_h_to_sites,breaks=14)      
+
+    time_to_sites <- (time_to_sites < 2)
     time_to_sites[time_to_sites == 0] <- NA
     
     time_to_sites %>%
@@ -252,16 +268,21 @@ crs(time_to_sites)@projargs==crs(domain)@projargs
       #only include sites that have a slope < 30 degrees
     st_intersection(y = slope__poly_buffered) %>%  
       
-      # only include sites within 3 hours of the road
+      # only include sites within 2 hours of the road
     st_intersection(y= time_to_sites %>% st_make_valid()) %>%  
       
       #union and create a new object
     st_union() -> acceptable_sites
 
     plot(acceptable_sites)
-  
-    acceptable_sites%>%
-    st_write(dsn = "data/output/acceptable_sites.shp")  
+
+    # acceptable_sites%>%
+    # st_write(dsn = "data/output/acceptable_sites.shp",
+    #          append=FALSE)
+    # 
+    # acceptable_sites%>%
+    #   st_write(dsn = "data/output/acceptable_sites.gpkg",
+    #            append=FALSE)
     
   rm(focal_sites_good_ndvi,sampling_locations,sampling_near_roads,slope__poly_buffered,time_to_sites)  
     
