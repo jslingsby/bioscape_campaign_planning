@@ -37,3 +37,10 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+#Data (at least for now)
+data/static/*
+data/manual_downloads/*
+data/static/*
+data/temp/*
+data/climate/*

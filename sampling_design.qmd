@@ -1,0 +1,69 @@
+---
+title: "Untitled"
+author: "Brian Maitner"
+date: "10/6/2022"
+output: html_document
+---
+
+# Terrestrial sampling options
+
+In this file, the goal is to:
+
+  1) Examine the environmental coverage available within focal sites
+  2) Attempt to subdivide those focal sites into clusters for representative sampling
+
+
+```{r setup, include=FALSE, echo=FALSE}
+
+# Load required packages
+
+library(googledrive)
+library(terra)
+library(ggplot2)
+library(stars)
+library(sf)
+library(movecost) #https://www.sciencedirect.com/science/article/pii/S2352711019302341#fig2
+library(piggyback)
+source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_pb_download.R")
+
+
+#Load required data
+
+domain <- st_read("data/output/domain.gpkg") #the full domain
+sampling_options <- st_read("data/output/sampling_options.gpkg") #parks falling within the domain
+acceptable_sites <- st_read("data/output/acceptable_sites.gpkg")
+
+
+```
+
+# Sampling options
+
+```{r, echo=FALSE}
+
+
+ggplot()+
+  geom_sf(data = domain, col = "black")+
+  geom_sf(data = sampling_options,fill="dark grey",col = "dark grey")+
+  geom_sf(data = acceptable_sites, fill="red", col = "red")
+
+
+```
+
+Figure 1. The full domain (light grey), available study sites (dark grey), and focal study sites (red).
+
+# Focal sites
+
+Focal study sites have been selected on the basis of the following criteria:
+
+* occur in the domain
+* occur within a national park
+* occur within 1 km of a road
+* have a mean NDVI over the last year of > 0.2
+* have a slope < 30 degrees
+* are within an estimated hiking time of 2 hours from the road
+
+# Clustering
+
+To better stratify our sampling, we'll use clustering to 
+
+

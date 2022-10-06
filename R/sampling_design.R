@@ -9,8 +9,11 @@ library(stars)
 library(sf)
 library(movecost) #https://www.sciencedirect.com/science/article/pii/S2352711019302341#fig2
 library(piggyback)
+library(ClimDatDownloadR)
 source("R/get_park_polygons.R")
 source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_pb_download.R")
+source("R/count_spei_anomalies.R")
+
 
 #########################################################################
 
@@ -274,7 +277,7 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
     
   }else{
     
-    time <- terra::rast("data/output/distance_h_to_sites.tif")
+    movecost_rast_out <- terra::rast("data/output/distance_h_to_sites.tif")
     
   }
   
@@ -519,7 +522,95 @@ source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robu
   #            append=FALSE)
     
 #########################################################################
+
+  # PUll environmental data for clustering
   
+  
+  # Climate  
+      
+    # get climate data
+  
+      ClimDatDownloadR::Chelsa.Clim.download(save.location = "data/climate/",
+                                             parameter = "bio",
+                                             bio.var = c(1,12,15))
+      
+      # read in data
+        climate <- terra::rast(list.files("data/climate/bio/bio_V1.2/",
+                                        full.names = TRUE))
+      
+      #crop climate data (crop before projecting to make it easier)
+      
+      climate %>%
+        crop(y = st_transform(domain, crs = crs(climate)))-> climate
+      
+      climate %>%
+        terra::project(y = crs(domain)) -> climate
+  
+
+  # water distance
+    
+    if( !file.exists("data/output/distance_from_freshwater.tif"))  {
+      
+    #load data
+      rivers <- st_read("data/manual_downloads/NFEPA/NFEPA_Rivers.shp")
+      wetlands <- st_read("data/manual_downloads/NFEPA/NFEPA_Wetlands.shp")
+      
+    
+    #aggregate to coarser resolution (using the same resolution as the elevation layers)
+    
+    rivers %>%
+      #filter(grepl(pattern = "P",x = RIVTYPE))%>% #uncomment this to only include permanent rivers
+      st_transform(crs = crs(movecost_rast_out)) %>%
+      vect() %>%
+      terra::rasterize(y = movecost_rast_out,
+                       touches = TRUE) -> rivers
+    
+    wetlands %>%
+      st_transform(crs = crs(movecost_rast_out)) %>%
+      vect() %>%
+      terra::rasterize(y = movecost_rast_out,
+                       touches = TRUE) -> wetlands
+    
+    c(wetlands,rivers) %>%
+      app(function(x){
+        if(any(!is.na(x))){1}else{NA}
+      }) -> water
+    
+      water %>%
+      terra::distance() -> dist_from_water
+  
+      terra::writeRaster(x = dist_from_water,
+                         filename = "data/output/distance_from_freshwater.tif",overwrite=TRUE)
+    
+    }else{
+    
+      dist_from_water <- rast("data/output/distance_from_freshwater.tif")  
+      
+    }
+    
+  #Drought  
+
+    if(!file.exists("data/output/drought.tif")){
+      
+      list.files(path = "data/manual_downloads/drought/",full.names = TRUE) %>%
+        count_spei_anomalies(thresh = -1,
+                             domain = domain) %>%
+        resample(y = movecost_rast_out) -> drought
+      
+      terra::writeRaster(x = drought,
+                         filename = "data/output/drought.tif")
+      
+      
+    }else{
+      
+      drought <- terra::rast("data/output/drought.tif")
+      
+    }  
+      
+      
+    
+  
+#########################################################################    
 #cleanup
   
   terra::tmpFiles(current = FALSE,
