@@ -1,3 +1,6 @@
+#' @description Sampling design for BIOSCAPE
+#' @author Brian Maitner
+
 # Load packages
 library(googledrive)
 library(terra)
@@ -9,771 +12,519 @@ library(piggyback)
 source("R/get_park_polygons.R")
 source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_pb_download.R")
 
-# Get necessary data
+#########################################################################
 
-  roads <- read_sf("data/manual_downloads/Roads/cfr_roads.gpkg")
-  parks <- get_park_polygons()
-
-# combine park polygons into one set by chucking extraneous data
+# Get basic spatial data (domain, park areas, roads) (if needed)
   
-    parks <-
-      parks$cape_nature %>%
-        dplyr::select(RESERVENAM)%>%
-        rename(park_name = RESERVENAM)%>%
-        bind_rows(parks$national_parks %>% 
-                    dplyr::select(CUR_NME)%>%
-                    rename(park_name = CUR_NME))
+  if(!file.exists("data/output/sampling_options_near_roads.gpkg")|
+     !file.exists("data/output/sampling_options.gpkg")|
+     !file.exists("data/output/domain.gpkg")){
     
-# Get domain
-
-    pb_download(file = "domain.gpkg",
-                dest = 'temp/',
-                repo = "AdamWilsonLab/emma_envdata",
-                tag = "raw_static")
-
-    domain <- read_sf("temp/domain.gpkg")
-
-# Pull elevation data from envdata releases  
+    # Get the full potential domain
     
-  # For original resolution (267 Mb)
-  
-    pb_download(file = "nasadem.tif",
-                dest = "temp/",
-                repo = "AdamWilsonLab/emma_envdata",
-                tag = "raw_static",
-                overwrite = TRUE)
-  
-  # For modis resolution/projection (4.7 Mb, 500m resolution) 
-    # pb_download(file = "nasadem.tif",
-    #             dest = "temp/",
-    #             repo = "AdamWilsonLab/emma_envdata",
-    #             tag = "processed_static",
-    #             overwrite = TRUE )
+      pb_download(file = "domain.gpkg",
+                  dest = 'temp/',
+                  repo = "AdamWilsonLab/emma_envdata",
+                  tag = "raw_static")
       
-    nasadem <- rast("temp/nasadem.tif")
-    nasadem <- mask(x = nasadem,
-                    mask = vect(domain)) # mask domain to get rid of 0 values that should be NA
-    
-############################
-    
-    # Transform everything to a common equal area projection.  Here I'll use AEA_RSA_WGS84
+      domain <- read_sf("temp/domain.gpkg")
     
     
-    # reproject dem into equal area
-
-      nasadem <-
-        nasadem %>%
-        terra::project(
-          y = st_crs(domain)$proj4string)
-
-    #we only want parks in the domain
+    # Get necessary road and park data
+    
+      roads <- read_sf("data/manual_downloads/Roads/cfr_roads.gpkg")
+      parks <- get_park_polygons()
+    
+    # combine park polygons into one set by chucking extraneous data
+    
       parks <-
-        parks %>%
-          st_transform(st_crs(domain))%>%
-        st_intersection(domain)
-    
-  # Buffer parks by ~10km (this is to avoid edge artifacts of roads near but outside parks)
-  # Crop roads to buffered parks
-  
-  #temp
+        parks$cape_nature %>%
+        dplyr::select(RESERVENAM) %>%
+        rename(park_name = RESERVENAM) %>%
+        bind_rows(parks$national_parks %>% 
+                    dplyr::select(CUR_NME) %>%
+                    rename(park_name = CUR_NME)) %>%
+        st_transform(st_crs(domain)) %>%
+        st_intersection(domain) %>%
+        select(-domain)
       
-    roads <- 
-    roads %>%
-      st_transform(crs = st_crs(domain)) %>%
-      dplyr::select(FEAT_TYPE) %>%
-      st_intersection(y = parks %>%
-                st_buffer(10000))
-
-  # Buffer cropped roads to ~1km (this is the maximum walking distance to consider - we can change it later if needed).
-  
-    roads %>%
-      dplyr::filter(FEAT_TYPE  %in%
-                      c("Main Road",
-                        "Arterial Road",
-                        "Other Road",
-                        #"Footpath",
-                        "Secondary Road",
-                        "Street",
-                        "National Road",
-                        #"On/OffRamp",
-                        "National Freeway"
-                        #,
-                        #"Track",
-                        #"Slipway"
-                        ) ) %>%
-      st_buffer(dist = 1000) -> road_buffer
-    
-    road_buffer %>%
-      st_union() -> road_buffer
-    
-    plot(road_buffer)
-    
-  
-  # Crop the buffered roads to parks/public land. These will be the 'caterpillar' shaped sampling domain (all public lands within 3km of a road). 
-
-  road_buffer %>%
-    st_intersection(parks) %>%
-    st_union() -> road_buffer
-  
-
-  # Optional - use this much-reduced domain to do the movecost algorithm to get time to visit each 30m pixel within the sampling domain and further subtract areas that are very difficult to access - e.g. the cost thing should remove sites that are on top of a cliff even though it's adjacent to a road.
-
-
-      # mask the dem
-        
-        nasadem %>%
-          mask(vect(road_buffer)) %>%
-          crop(as_Spatial(road_buffer)) -> masked_dem
-        
-          
-      # cut roads down to those in the road buffer
-        # simplify(?)
-        # convert to points
-        
+      
+    # Buffer parks by ~10km (this is to avoid edge artifacts of roads near but outside parks)
+      
+    # Crop roads to buffered parks
+      
+      roads <- 
         roads %>%
-          dplyr::filter(FEAT_TYPE  %in%
-                          c("Main Road",
-                            "Arterial Road",
-                            "Other Road",
-                            #"Footpath",
-                            "Secondary Road",
-                            "Street",
-                            "National Road",
-                            #"On/OffRamp",
-                            "National Freeway"
-                            #,
-                            #"Track",
-                            #"Slipway"
-                          ) ) %>%
-          st_intersection(y = road_buffer) -> cropped_roads
+        st_transform(crs = st_crs(domain)) %>%
+        dplyr::select(FEAT_TYPE) %>%
+        st_intersection(y = parks %>%
+                          st_buffer(10000))
       
-        ggplot() +
-          geom_sf(data = domain) +
-          geom_sf(data = parks) +
-          geom_sf(data = cropped_roads, col="red")
-        
-        
-          
-        #rm(roads, nasadem)
-  
-  # save cropped parks for later use              
-    st_write(obj = parks,
-             dsn = "data/output/sampling_options.gpkg",
-             append = FALSE)
-    
-  # save buffered roads for later use  
-    
-    st_write(obj = road_buffer,
-             dsn = "data/output/sampling_options_near_roads.gpkg",
-             append = FALSE)
-    
-    
-  # Calculate movement cost
-  #https://www.sciencedirect.com/science/article/pii/S2352711019302341#fig2
-  
-  library(movecost)
-  
-  
-  #Start the environmental stratification of these sampling sites compared to the full range of environments across the GCFR.  What's the smallest set of locations that approximately captures the variability across the region?
-    # Mean annual temperature
-    # Mean annual precipitation
-    # Precipitation seasonality
-    # Elevation?
-    # Soil?
-    # The rest of the static env vars from emma?
-
-
-  #v.1
-  
-
-    #check that everything aligns alright  
+    # Buffer cropped roads to ~1km (this is the maximum walking distance to consider - we can change it later if needed).
+      # then keep only the roads within a park
       
-      plot(masked_dem)
-      plot(road_buffer,add=TRUE)
-      plot(cropped_roads)
+      roads %>%
+        dplyr::filter(FEAT_TYPE  %in%
+                        c("Main Road",
+                          "Arterial Road",
+                          "Other Road",
+                          #"Footpath",
+                          "Secondary Road",
+                          "Street",
+                          "National Road",
+                          #"On/OffRamp",
+                          "National Freeway"
+                          #,
+                          #"Track",
+                          #"Slipway"
+                        ) ) %>%
+        st_buffer(dist = 1000) %>%
+        st_union() %>%
+        st_intersection(parks) %>%
+        st_union() -> road_buffer
+    
+      plot(road_buffer)
+      
+    # save buffered roads for later use  
+      
+      st_write(obj = road_buffer,
+               dsn = "data/output/sampling_options_near_roads.gpkg",
+               append = FALSE)
+      
+      # save cropped parks for later use              
+      st_write(obj = parks,
+               dsn = "data/output/sampling_options.gpkg",
+               append = FALSE)
+      
+      # save domain
+      # save cropped parks for later use              
+      st_write(obj = domain,
+               dsn = "data/output/domain.gpkg",
+               append = FALSE)
+  }else{
+    
+    domain <- st_read("data/output/domain.gpkg")
+    parks <- st_read("data/output/sampling_options.gpkg")
+    road_buffer <- st_read("data/output/sampling_options_near_roads.gpkg")
+    roads <- st_read("data/manual_downloads/Roads/cfr_roads.gpkg") %>%
+      st_transform(crs = st_crs(domain)) %>%
+      dplyr::select(FEAT_TYPE)
+    
+  }
+    
+    
+  
+#########################################################################
+  
+# Calculate movement cost (if needed)
+  
 
+  if(!file.exists("data/output/distance_h_to_sites.tif")){
+  
+    # Pull elevation data from envdata releases  
+    
+      pb_download(file = "nasadem.tif",
+                  dest = "temp/",
+                  repo = "AdamWilsonLab/emma_envdata",
+                  tag = "raw_static",
+                  overwrite = TRUE)
+      
+      nasadem <- rast("temp/nasadem.tif") %>%
+        mask(x = nasadem,
+             mask = vect(domain)) %>% # mask domain to get rid of 0 values that should be NA
+        terra::project(
+          y = st_crs(domain)$proj4string) %>% #reproject to match domain
+        mask(vect(road_buffer)) %>% #mask to road buffer
+        crop(as_Spatial(road_buffer)) -> masked_dem
+    
+    # cut roads down to those in the road buffer
+    
+      roads %>%
+        dplyr::filter(FEAT_TYPE  %in%
+                        c("Main Road",
+                          "Arterial Road",
+                          "Other Road",
+                          #"Footpath",
+                          "Secondary Road",
+                          "Street",
+                          "National Road",
+                          #"On/OffRamp",
+                          "National Freeway"
+                          #,
+                          #"Track",
+                          #"Slipway"
+                        ) ) %>%
+        st_intersection(y = road_buffer) -> cropped_roads
+    
+      ggplot() +
+        geom_sf(data = domain) +
+        geom_sf(data = parks) +
+        geom_sf(data = cropped_roads, col="red")
+      
+      #remove spandrels
+        rm(nasadem, roads)
+  
     #iterate through individual parks to keep size down
       
       #park_name_i <- unique(parks$park_name)[1]
       
-    for(i in 1:length(unique(parks$park_name))){
-      
-      print(i/length(unique(parks$park_name)))
-
-      gc()
-
-      park_name_i <- unique(parks$park_name)[i]
-      
-      print(park_name_i)
-      
-      park_i <-
-        parks %>%
-        filter(park_name == park_name_i)
-      
+      for(i in 1:length(unique(parks$park_name))){
         
-      plot(park_i)   
-      
-      #check whether the park is within the domain (masking will throw errors otherwise)
+        print(i/length(unique(parks$park_name)))
+        
+        gc()
+        
+        park_name_i <- unique(parks$park_name)[i]
+        
+        print(park_name_i)
+        
+        park_i <-
+          parks %>%
+          filter(park_name == park_name_i)
+        
+        
+        plot(park_i)   
+        
+        #check whether the park is within the domain (masking will throw errors otherwise)
         if(!terra::relate(x = ext(masked_dem),
-                      y = vect(park_i),
-                      relation = "intersects")){next}
-      
-      # only take the part of the park within our domain (only relevant for a few, e.g. Karoo)
-      
-      park_i <-
-        park_i %>%
+                          y = vect(park_i),
+                          relation = "intersects")){next}
+        
+        # only take the part of the park within our domain (only relevant for a few, e.g. Karoo)
+        
+        park_i <-
+          park_i %>%
           st_intersection(domain)
-
-      #mask the dem to just the park      
-      dem_i <- 
-        masked_dem %>%
-            mask(vect(park_i)) %>%
-            crop(park_i)
-      
-      plot(masked_dem)
-      plot(park_i, add = TRUE)
-      
-      plot(dem_i)
-      
-      #crop roads to relevant ones
-      
-      roads_i <- 
-        cropped_roads %>%
-        st_intersection(y = park_i) %>%
-        st_cast("MULTIPOINT") %>%
-        st_cast("POINT")
-
-      gc()
-      
-      if(nrow(roads_i) == 0){next}
-      
-      plot(dem_i)
-      plot(roads_i[1],
-           add = TRUE)
-      
-      #trying to figure out why karoo breaks
-      #   test <- terra::extract(x = dem_i,
-      #                  y = vect(roads_i))
-      #   
-      #   roads_i <- 
-      #     roads_i %>%
-      #     st_intersection(y = park_i%>%
-      #                       st_buffer(dist = -7000))
-      #   
-      #   library(stars)
-      #   
-      #   ggplot()+
-      #     geom_stars(data = st_as_stars(dem_i))+
-      #     geom_sf(data = park_i,col="black",fill=NA)+
-      #     geom_sf(data = roads_i)
-      # 
-      # plot(masked_dem)  
         
-      # end figuring out    
+        #mask the dem to just the park      
+        dem_i <- 
+          masked_dem %>%
+          mask(vect(park_i)) %>%
+          crop(park_i)
+        
+        plot(masked_dem)
+        plot(park_i, add = TRUE)
+        
+        plot(dem_i)
+        
+        #crop roads to relevant ones
+        
+        roads_i <- 
+          cropped_roads %>%
+          st_intersection(y = park_i) %>%
+          st_cast("MULTIPOINT") %>%
+          st_cast("POINT")
+        
+        gc()
+        
+        if(nrow(roads_i) == 0){next}
+        
+        plot(dem_i)
+        plot(roads_i[1],
+             add = TRUE)
+        
+        movement_cost_i <- 
+          movecost(dtm = raster::raster(dem_i),
+                   origin = as_Spatial(roads_i),
+                   studyplot = as_Spatial(park_i),
+                   outp = "raster",
+                   funct = "tofp",
+                   move = 8,
+                   time = "h",
+                   return.base = FALSE,
+                   graph.out = FALSE,
+                   cont.lab = FALSE)
+        
+        plot(movement_cost_i$accumulated.cost.raster)
+        
+        # Aggregate output rasters
+        
+        if(i == 1){
           
-      movement_cost_i <- 
-        movecost(dtm = raster::raster(dem_i),
-                 origin = as_Spatial(roads_i),
-                 studyplot = as_Spatial(park_i),
-                 outp = "raster",
-                 funct = "tofp",
-                 move = 8,
-                 time = "h",
-                 return.base = FALSE,
-                 graph.out = FALSE,
-                 cont.lab = FALSE)
-      
-      plot(movement_cost_i$accumulated.cost.raster)
-      
-      # Aggregate output rasters
-      
-      if(i == 1){
-        
-        movecost_rast_out <- movement_cost_i$accumulated.cost.raster
-        
-      }else{
-      
-        movecost_rast_out <- (merge(movecost_rast_out,movement_cost_i$accumulated.cost.raster))
-        plot(movecost_rast_out)
+          movecost_rast_out <- movement_cost_i$accumulated.cost.raster
           
-      }
-      
-      rm(movement_cost_i, roads_i, park_i, dem_i)
-      gc()
-      tmpFiles(current = FALSE,
-               orphan = TRUE,
-               old = TRUE,
-               remove = TRUE)
-      
-    }  
-      
+        }else{
+          
+          movecost_rast_out <- (merge(movecost_rast_out,movement_cost_i$accumulated.cost.raster))
+          plot(movecost_rast_out)
+          
+        }
+        
+        rm(movement_cost_i, roads_i, park_i, dem_i)
+        gc()
+        tmpFiles(current = FALSE,
+                 orphan = TRUE,
+                 old = TRUE,
+                 remove = TRUE)
+        
+      }  
     
-# Examine output
-       
-    # writeRaster(x = movecost_rast_out,
-    #             filename = "data/output/distance_h_to_sites.tif",overwrite=TRUE)
-      
-# publish sampling distances as a raster
-
+    
+    # Examine output
+    
+    writeRaster(x = movecost_rast_out,
+                filename = "data/output/distance_h_to_sites.tif",
+                overwrite = FALSE)
+    
+    # publish sampling distances as a raster
+    
     pb_upload(file = "data/output/distance_h_to_sites.tif",
               repo = "BioSCape-io/terrestrial_sampling",
               tag = "current")  
-          
-      
+    
+  }else{
+    
+    time <- terra::rast("data/output/distance_h_to_sites.tif")
+    
+  }
+  
+  
+#########################################################################
+  
+
+# Filtering NDVI
+
+  # Get an inventory of available data
+  
+    env_files <- pb_list("AdamWilsonLab/emma_envdata")  
+
+  # pull most recent NDVI
+  
+    env_files %>%
+      filter(tag == "raw_ndvi_modis") %>%
+      arrange(file_name) %>%
+      filter(file_name != "log.csv") %>%
+      slice_tail(n = 24)%>%
+      pull(file_name) %>%
+      robust_pb_download(dest = "temp/recent_ndvi",
+                         repo = "AdamWilsonLab/emma_envdata",
+                         tag = "raw_ndvi_modis",
+                         overwrite = TRUE,
+                         max_attempts = 10,
+                         sleep_time = 30)
+
+  # load ndvi and do necessary transforms  
+
+    recent_ndvi <- ((terra::rast(list.files("temp/recent_ndvi/",full.names = TRUE))/100)-1)
+
+  # take mean ndvi over the last 12 months or so
+
+    recent_ndvi <- terra::app(x = recent_ndvi,
+                            fun = function(x){mean(na.omit(x))})
+
+    names(recent_ndvi) <- "NDVI"
+
+  # select only sites with mean NDVI > 0.2
+    
+    focal_sites_good_ndvi <-
+      recent_ndvi %>%
+      mask(road_buffer %>%
+             st_transform(crs = st_crs(recent_ndvi)) %>%
+             vect()) %>%
+      mask(recent_ndvi >= 0.2, maskvalues=0, updatevalue = NA)%>%
+      terra::as.polygons() %>%
+      st_as_sf()%>%
+      st_transform(crs = crs(domain))
+    
+#########################################################################
+    
+# Filtering for slope
+    
+    
+  if(!file.exists("data/output/flat_polygons.gpkg")){
+    
+      #get DEM
+        robust_pb_download(file = "nasadem.tif",
+                           dest = "temp/nasadem",
+                           repo = "AdamWilsonLab/emma_envdata",
+                           tag = "raw_static",
+                           overwrite = TRUE,
+                           max_attempts = 10,
+                           sleep_time = 30)
+
+      #load dem
+        dem <- terra::rast("temp/nasadem/nasadem.tif")
+        plot(dem)
+
+      # cut down to only the parks(and maybe a small buffer for edge effects) to save memory
+        dem <-
+        dem %>%
+          terra::mask(mask = sampling_locations %>%
+                 st_buffer(dist = 1000) %>%
+                 st_transform(crs = st_crs(dem)) %>%
+                 vect())
+
+        # terra::tmpFiles(current = FALSE,
+        #                 orphan = TRUE,
+        #                 old = TRUE,
+        #                 remove = TRUE)
+
+
+      # Need DEM in units of meters, so have to transform
+        dem <- terra::project(dem, y = crs(domain))
+
+        #need to break up dem to avoid "cannot allocate vector of X Gb" warning
+
+        poly_for_dem <-
+          sampling_locations %>%
+            st_buffer(dist = 1000) %>%
+            st_transform(crs = st_crs(dem)) %>%
+            st_union() %>%
+          st_make_valid() %>%
+          st_cast("POLYGON") %>%
+          as.data.frame()
+
+      for(i in 1:nrow(poly_for_dem)){
+
+        poly_i <- poly_for_dem[i,]
+
+        dem_i <- dem %>%
+          mask(mask = vect(poly_i))
+
+        dem_i <-
+          dem_i %>%
+          crop(poly_i)
+
+        #plot(dem_i)
+
+        #calc slope using insol package
+
+          slope_insol <- insol::slope(cgrad(raster::raster(dem_i)), degrees = TRUE)
+          slope_insol <- raster::raster(slope_insol,
+                                       crs=raster::projection(dem_i))
+          raster::extent(slope_insol) <- raster::extent(raster::raster(dem_i))
+          plot(slope_insol)
+
+
+        #calc slop using stars package
+
+          slope_stars <- starsExtra::slope(x = stars::st_as_stars(dem_i,proxy=FALSE))
+          slope_stars <- rast(slope_stars)
+          #plot(slope_stars)
+
+        if(i == 1){
+
+          stars_slope <- slope_stars
+          insol_slope <- slope_insol
+
+        }else{
+
+          stars_slope <- terra::merge(stars_slope, slope_stars)
+          insol_slope <- terra::merge(insol_slope, slope_insol)
+
+        }
+
+        rm(slope_stars, slope_insol, dem_i, poly_i)
+
+        #clear out temp files to keep hd from filling up
+        terra::tmpFiles(current = FALSE,
+                        orphan = TRUE,
+                        old = TRUE,
+                        remove = TRUE)
+
+      }
+
     gc()
-    plot(movecost_rast_out)
-    library(terra)
-    # time <- terra::rast("data/output/distance_h_to_sites.tif")
-    # 
-  plot(time)    
-    
-################################################################################
 
-  # Looking at environmental gradient
-        
-  movecost_rast_out <- rast("data/output/distance_h_to_sites.tif")
-  sampling_locations <- st_read("data/output/sampling_options.gpkg")
+    # writeRaster(x = insol_slope, filename = "data/output/insol_slope.tif")
+    # writeRaster(x = stars_slope, filename = "data/output/stars_slope.tif")
 
-  movecost_rast_out %>%
-    as.data.frame(xy = TRUE) %>%
-    na.omit()%>%
-  ggplot() +
-    geom_tile(aes(x = x, y = y, fill = distance_h_to_sites))+
-    scale_fill_gradient(low = "green",high = "red")+
-    geom_sf(data = domain, fill = NA)+
-    geom_sf(data = sampling_locations, fill = NA)
-  
-  
-  hist(na.omit(values(movecost_rast_out)), main = "Histogram of time (h) to focal sites")
-  
-  # get climate data
-    
-    library(ClimDatDownloadR)
-    
-    ClimDatDownloadR::Chelsa.Clim.download(save.location = "data/climate/",
-                                           parameter = "bio",
-                                           bio.var = c(1,12,15))
-    
-  # read in data
-    climate <- terra::rast(list.files("data/climate/bio/bio_V1.2/",
-                                      full.names = TRUE))
-    
-  #crop climate data (crop before projecting to make it easier)
+    insol_slope <- rast("data/output/insol_slope.tif")
+    stars_slope <- rast("data/output/stars_slope.tif")
 
-    climate %>%
-      crop(y = st_transform(domain, crs = crs(climate)))-> climate
-    
-    climate %>%
-      terra::project(y = crs(movecost_rast_out)) -> climate
-    
-  # extract values within the domain
-    
-    clim_vals_domain <-
-      terra::extract(climate,
-                     y = vect(domain),
-                     cells=TRUE,
-                     xy=TRUE)
-    
-    clim_vals_domain %>%
-      rename(bio1 = CHELSA_bio10_01_V1.2,
-             bio12 = CHELSA_bio10_12_V1.2,
-             bio15 = CHELSA_bio10_15_V1.2) %>%
-      dplyr::select(-ID) -> clim_vals_domain
-    
-  # extract values within the parks
-    
-    clim_vals_parks <-
-      terra::extract(climate,
-                     y = vect(parks),
-                     cells=TRUE,
-                     xy=TRUE)
-    
-    clim_vals_parks %>%
-      rename(bio1 = CHELSA_bio10_01_V1.2,
-             bio12 = CHELSA_bio10_12_V1.2,
-             bio15 = CHELSA_bio10_15_V1.2) %>%
-      dplyr::select(-ID) -> clim_vals_parks
+    #make a polygon of sites that have a reasonable slope in each raster (< 30 degrees)
 
-    
-  # extract values within the potential sampling locations
-    
-  clim_vals_focal <-
-    terra::extract(climate,
-                   y = vect(road_buffer),
-                   cells=TRUE,
-                   xy=TRUE)
-  
+      insol_slope <- (insol_slope < 30)
+      insol_slope[which(is.na(values(insol_slope)))] <- 0
 
-  clim_vals_focal %>%
-    rename(bio1 = CHELSA_bio10_01_V1.2,
-           bio12 = CHELSA_bio10_12_V1.2,
-           bio15 = CHELSA_bio10_15_V1.2) %>%
-    dplyr::select(-ID) -> clim_vals_focal
-  
-  
-  # visualize climate vals
+      stars_slope <- (stars_slope < 30)
+      stars_slope[which(is.na(values(stars_slope)))] <- 0
 
-    cor(na.omit(clim_vals_domain[1:3]))# all pretty independent
-    cor(na.omit(clim_vals_focal[1:3]))# all pretty independent
-    
-    bio1_v_12_domain <-
-    ggplot(data = clim_vals_domain,
-           mapping = aes(x = bio1, y = bio12)) +
-      geom_point()
-    
-    bio1_v_12_focal <-
-      ggplot(data = clim_vals_focal,
-             mapping = aes(x = bio1, y = bio12)) +
-      geom_point()
-    
-    
-    bio1_v_15_domain <-
-    ggplot(data = clim_vals_domain,
-           mapping = aes(x = bio1, y = bio15)) +
-      geom_point()
-    
-    
-    bio1_v_15_focal <-
-      ggplot(data = clim_vals_focal,
-             mapping = aes(x = bio1, y = bio15)) +
-      geom_point()
-    
-    bio12_v_15_domain <-
-    ggplot(data = clim_vals_domain,
-           mapping = aes(x = bio12, y = bio15)) +
-      geom_point()
-    
-    bio12_v_15_focal <-
-      ggplot(data = clim_vals_focal,
-             mapping = aes(x = bio12, y = bio15)) +
-      geom_point()
-    
-    
-    bio1_v_12v_2_domain <-
-      ggplot(data = clim_vals_domain,
-             mapping = aes(x = bio1, y = bio12)) +
-      geom_point(aes(col=bio15))
-    
-    
-    bio1_v_12v_2_focal <-
-      ggplot(data = clim_vals_focal,
-             mapping = aes(x = bio1, y = bio12)) +
-      geom_point(aes(col=bio15))
-    
-    bio1_v_12v_2_domain
-    
-    
-    #save plots
+      #insol doesn't keep the crs, so add it in here
+        crs(insol_slope) <- crs(stars_slope)
 
-      ggsave(filename = file.path("figures/bio1_v_12_domain.jpg"),
-             plot = bio1_v_12_domain)
-      
-      ggsave(filename = file.path("figures/bio1_v_15_domain.jpg"),
-             plot = bio1_v_15_domain)
-      
-      ggsave(filename = file.path("figures/bio12_v_15_domain.jpg"),
-             plot = bio12_v_15_domain)
-      
-      
-      ggsave(filename = file.path("figures/bio1_v_12_focal.jpg"),
-             plot = bio1_v_12_focal)
-      
-      ggsave(filename = file.path("figures/bio1_v_15_focal.jpg"),
-             plot = bio1_v_15_focal)
-      
-      ggsave(filename = file.path("figures/bio12_v_15_focal.jpg"),
-             plot = bio12_v_15_focal)
-      
-    #3d plots 
-      #https://stackoverflow.com/questions/50027798/in-r-rgl-how-to-print-shadows-of-points-in-plot3d
-      library(rgl)
-      plot3d(x = clim_vals_domain$bio1,
-             y = clim_vals_domain$bio12,
-             z = clim_vals_domain$bio15,
-             xlab = "Temp",
-             ylab = "Precip",
-             zlab = "Prec. Seasonality",
-             main = "Domain Level")
-      
-      plot3d(x = clim_vals_focal$bio1,
-             y = clim_vals_focal$bio12,
-             z = clim_vals_focal$bio15,
-             xlab = "Temp",
-             ylab = "Precip",
-             zlab = "Prec. Seasonality",
-             main = "Focal sites")
-      
-      # show2d({
-      #   par(mar=c(0,0,0,0))
-      #   plot(x = clim_vals$bio1,
-      #        y = clim_vals$bio12, 
-      #        col = "grey")
-      # })
+      combined_slope <- insol_slope + stars_slope
 
-#############################################
-  
-  #Dividing up sites
-      
-      domain <- read_sf("temp/domain.gpkg")
-      
-  #v1 clustering
-      
-  library(cluster)    
-
-  clim_vals_domain <- na.omit(clim_vals_domain)
-  clim_vals_focal <- na.omit(clim_vals_focal)
-  clim_vals_parks <- na.omit(clim_vals_parks)
-  
-      
-  k_clusters_domain <- kmeans(x = scale(clim_vals_domain[,1:3]),
-                       centers = 20,nstart = 100,
-                       iter.max = 1000000)
-  
-  k_clusters_parks <- kmeans(x = scale(clim_vals_parks[,1:3]),
-                             centers = 20,nstart = 100,
-                             iter.max = 1000000)
-  
-  
-  k_clusters_focal <- kmeans(x = scale(clim_vals_focal[,1:3]),
-                              centers = 20,nstart = 100,
-                              iter.max = 1000000)
-  
-  
-  
-  plot3d(x = clim_vals_domain$bio1,
-         y = clim_vals_domain$bio12,
-         z = clim_vals_domain$bio15,
-         xlab = "Temp",
-         ylab = "Precip",
-         zlab = "Prec. Seasonality",
-         col = rainbow(n = length(unique(as.numeric(k_clusters_domain$cluster))))[as.numeric(k_clusters_domain$cluster)])
-  
-  
-  plot3d(x = clim_vals_focal$bio1,
-         y = clim_vals_focal$bio12,
-         z = clim_vals_focal$bio15,
-         xlab = "Temp",
-         ylab = "Precip",
-         zlab = "Prec. Seasonality",
-         col = rainbow(n = length(unique(as.numeric(k_clusters_focal$cluster))))[as.numeric(k_clusters_focal$cluster)])
-  
-  
-  
-  
-  k_raster_domain <- climate[[1]]
-  k_raster_domain[1:ncell(k_raster_domain)] <- NA
-  k_raster_domain[clim_vals_domain$cell] <- k_clusters_domain$cluster
-  
-  k_raster_domain %>%
-    mask(vect(road_buffer)) %>%
-           as.factor() %>%
-           as.data.frame(xy = TRUE) %>%
-           na.omit()%>%
-           rename(cluster = CHELSA_bio10_01_V1.2)%>%
-           mutate(cluster = as.factor(cluster))-> k_df_domain_masked
-         
-
-  k_raster_domain %>%
-    as.factor() %>%
-  as.data.frame(xy = TRUE) %>%
-    na.omit()%>%
-    rename(cluster = CHELSA_bio10_01_V1.2)%>%
-    mutate(cluster = as.factor(cluster))-> k_df_domain
-
-  
-  
-  ggplot(data = k_df_domain) +
-    geom_tile(aes(x = x, y = y, fill = cluster))+
-    scale_fill_discrete()+
-    geom_sf(data = domain,fill=NA)+
-    geom_sf(data = parks, fill = NA)
-
-  ggplot(data = k_df_domain_masked) +
-    geom_tile(aes(x = x, y = y, fill = cluster))+
-    scale_fill_discrete()+
-    geom_sf(data = domain,fill=NA)+
-    geom_sf(data = parks, fill = NA)
-  
-    
-  k_raster_parks <- setValues(climate[[1]],NA)
-  
-  k_raster_parks[clim_vals_parks$cell] <- k_clusters_parks$cluster
-  
-  k_raster_parks %>%
-    as.factor() %>%
-    as.data.frame(xy = TRUE) %>%
-    na.omit()%>%
-    rename(cluster = CHELSA_bio10_01_V1.2)%>%
-    mutate(cluster = as.factor(cluster))-> k_df_parks
-  
-  ggplot(data = k_df_parks) +
-    geom_tile(aes(x = x, y = y, fill = cluster))+
-    scale_fill_discrete()+
-    geom_sf(data = domain,fill=NA)
-  
-  
-  k_raster_focal <- setValues(climate[[1]],NA)
-  
-  k_raster_focal[clim_vals_focal$cell] <- k_clusters_focal$cluster
-  
-  k_raster_focal %>%
-    as.factor() %>%
-    as.data.frame(xy = TRUE) %>%
-    na.omit()%>%
-    rename(cluster = CHELSA_bio10_01_V1.2)%>%
-    mutate(cluster = as.factor(cluster))-> k_df_focal
-  
-  ggplot(data = k_df_focal) +
-    geom_tile(aes(x = x, y = y, fill = cluster))+
-    scale_fill_discrete()+
-    geom_sf(data = domain,fill=NA)
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
-  # do all clusters across the domain occur in parks? focal parks?
-
-  terra::extract(x = k_raster_domain,
-                 y = vect(st_union(domain))) %>%
-    pull(CHELSA_bio10_01_V1.2)%>%
-    hist(main="Histogram of clusters in domain")
-  
-  
-  terra::extract(x = k_raster_domain,
-               y = vect(st_union(parks))) %>%
-  pull(CHELSA_bio10_01_V1.2)%>%
-hist(main="Histogram of clusters in parks")
-
-terra::extract(x = k_raster_domain,
-               y = vect(st_union(road_buffer))) %>%
-  pull(CHELSA_bio10_01_V1.2)%>%
-  hist(main="Histogram of clusters in parks near roads")
-
-res(k_raster_domain)
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# How many veg types show up in the clusters?
+      #plot(combined_slope) #pretty good correspondence. we'll keep any that meet the criteria using either approach
+      combined_slope <- (combined_slope > 0)
+      combined_slope[which(values(combined_slope)==0)] <- NA
 
 
-env_files <- pb_list(repo = "AdamWilsonLab/emma_envdata")
-vegmap <- st_read("C:/Users/Brian Maitner/Desktop/current_projects/emma_envdata/data/manual_download/VEGMAP2018_AEA_16082019Final/VEGMAP2018_Final.gdb")
+      plot(combined_slope)
 
-colnames(vegmap)
+      slope_poly <-
+        combined_slope %>%
+          terra::as.polygons(trunc = TRUE,
+                      dissolve = TRUE,
+                      values = TRUE) %>%
+        st_as_sf()
 
-test <-
-vegmap[c("Name_18","BIOME_18","BIOREGION_18",
-  "SUBTYPNM_18","MCDSUBTYPE")]%>%
-  st_drop_geometry()%>%unique()
-unique(test$Name_18)#467
-unique(test$BIOREGION_18)#44
-unique(test$SUBTYPNM_18)#26
-unique(test$MCDSUBTYPE)#28
-unique(test$BIOME_18)#~9
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-#Visualizing the study area
-
-library(raster)
-library(mapview)
-library(leaflet)
-library(leafem)
-
-domain %>%
-  st_transform(crs = st_crs(4326)) -> domain_wgs
-
-parks %>%
-  st_transform(crs = st_crs(4326)) -> parks_wgs
-
-road_buffer %>%
-  st_transform(crs = st_crs(4326)) -> road_buffer_wgs
-
-
-
-
-leaflet(data = domain_wgs) %>%
-  addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
-  #addProviderTiles("NASAGIBS.ModisTerraTrueColorCR", group = "True Colors") %>%
-  #addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
-  addPolygons(color = "black",
-              stroke = TRUE,
-              fill = FALSE,
-              group = "Domain") %>%
-  addPolygons(data = parks_wgs,
-              color = "red",
-              stroke = FALSE,
-              fill = TRUE,
-              fillOpacity = 1,
-              group = "Parks") %>%
-  addPolygons(data = road_buffer_wgs,
-              color = "Red",
-              stroke = FALSE,
-              fill = TRUE,
-              group = "Options",fillOpacity = 1)%>%
-  addLayersControl(
-    baseGroups = c("NatGeo"),
-    overlayGroups = c("Domain", "Parks","Options"),
-    options = layersControlOptions(collapsed = FALSE),position = "topright")
-
-
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
-  k_clusters2 <- kmeans(x = scale(clim_vals[,c(1:3,5:6)]),
-                       centers = 16,nstart = 100,
-                       iter.max = 1000000)
-  
-  plot3d(x = clim_vals$bio1,
-         y = clim_vals$bio12,
-         z = clim_vals$bio15,
-         xlab = "Temp",
-         ylab = "Precip",
-         zlab = "Prec. Seasonality",
-         col = rainbow(n = length(unique(as.numeric(k_clusters2$cluster))))[as.numeric(k_clusters2$cluster)])
-  
-  k_raster2 <- setValues(climate[[1]],NA)
-  
-  k_raster2[clim_vals$cell] <- k_clusters2$cluster
-  
-  k_raster2 %>%
-    as.factor() %>%
-    as.data.frame(xy = TRUE) %>%
-    na.omit()%>%
-    rename(cluster = CHELSA_bio10_01_V1.2)%>%
-    mutate(cluster = as.factor(cluster))-> k_df2
-  
-  ggplot(data = k_df2) +
-    geom_tile(aes(x = x, y = y, fill = cluster))+
-    scale_fill_discrete()+
-    geom_sf(data = domain,fill=NA)
-  
-  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
-
-  pam_clusters <- pam(x = scale(clim_vals[,1:3]),
-                      k = 9,
-                      keep.diss = FALSE,
-                      diss = FALSE,
-                      metric = "euclidean",
-                      keep.data = FALSE)
-  
-  ?pam
-  
-  plot3d(x = clim_vals$bio1,
-         y = clim_vals$bio12,
-         z = clim_vals$bio15,
-         xlab = "Temp",
-         ylab = "Precip",
-         zlab = "Prec. Seasonality",
-         col = rainbow(n = length(unique(as.numeric(pam_clusters$clustering))))[as.numeric(pam_clusters$clustering)])
-  
-  
-  
-  # going to manually split up data, since I couldn't find a nice package
-      
-      
-      
-      
+            st_write(obj = slope_poly,
+                    dsn = "data/output/flat_polygons.gpkg")
             
+  }else{
+    
+    slope_poly <- st_read("data/output/flat_polygons.gpkg")
+    
+    
+  }
+    
+    #add a slight buffer at a bit larger than pixel size so that we cut out areas where its just a pixel or two of steep terrain.
+    slope__poly_buffered <-
+      slope_poly %>%
+      st_buffer(dist = 40)
+
+#########################################################################
+    
+# Omit sites > 2 hours from the road
+    
+  time_to_sites <- rast("data/output/distance_h_to_sites.tif")
+    
+  time_to_sites <- (time_to_sites < 2)
+  time_to_sites[time_to_sites == 0] <- NA
+  
+  time_to_sites %>%
+    terra::as.polygons() %>%
+    st_as_sf()-> time_to_sites
+  
+#########################################################################
+  
+# Put it all together
+  
+  # put it all together:
+  
+    #select from sites in parks and within 1 km of a road
+    road_buffer %>%
+    
+    #only include sites with an ndvi > 0.2
+    st_intersection(y = st_make_valid(focal_sites_good_ndvi)) %>%
+    
+    #only include sites that have a slope < 30 degrees
+    st_intersection(y = slope__poly_buffered) %>%  
+    
+    # only include sites within 2 hours of the road
+    st_intersection(y= time_to_sites %>% st_make_valid()) %>%  
+    
+    #union and create a new object
+    st_union() -> acceptable_sites
+  
+  plot(acceptable_sites)
+  
+  # acceptable_sites%>%
+  # st_write(dsn = "data/output/acceptable_sites.shp",
+  #          append=FALSE)
+  # 
+  # acceptable_sites%>%
+  #   st_write(dsn = "data/output/acceptable_sites.gpkg",
+  #            append=FALSE)
+    
+#########################################################################
+  
+#cleanup
+  
+  terra::tmpFiles(current = FALSE,
+                orphan = TRUE,
+                old = TRUE,
+                remove = TRUE)
+  gc()
+  
