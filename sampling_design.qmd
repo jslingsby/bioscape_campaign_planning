@@ -64,6 +64,65 @@ Focal study sites have been selected on the basis of the following criteria:
 
 # Clustering
 
-To better stratify our sampling, we'll use clustering to 
+To better stratify our sampling, we'll use k-means clustering to divide up the cells within the domain into clusters.
+
+The variables going into the clustering are:
+
+* Distance from water (including either rivers or wetlands, but not including the ocean)
+* Drought (the number of droughts since 2000, quantified as the number SPEI values less than -1 since 2000)
+* Soil Depth (from ISDASOIL, depth to bedrock, with a maximum values of 2 meters)
+* Annual Mean Temperature
+* Annual Precipitation
+* Precipitation Seasonality (Coefficient of Variation)
+
+
+```{r load data for clustering and analyses}
+
+
+dist_from_water <- rast("data/output/distance_from_freshwater.tif")
+
+drought <- terra::rast("data/output/drought.tif")%>%
+        resample(y = dist_from_water)
+        
+climate <- terra::rast(list.files("data/climate/bio/bio_V1.2/",
+                                          full.names = TRUE)) %>%
+            terra::resample(y = dist_from_water)
+
+soil_depth <- rast("data/output/soil_depth_ISDASOIL.tif")[[1]]
+
+
+```
+
+Here I'm using k-means clustering to divide the data into 20 clusters. The number 20 was chosen entirely arbitrarily.
+
+
+```{r do clustering}
+
+
+# Do clustering
+      
+      clim_vals_domain <-
+        terra::extract(x = c(climate, soil_depth, dist_from_water, drought),
+                       y = vect(st_transform(x = domain,crs = crs(dist_from_water))),
+                       cells=TRUE,
+                       xy=TRUE)%>%
+        dplyr::select(-ID) %>%
+        na.omit() -> clim_vals_domain
+      
+      k_clusters_domain <- kmeans(x = clim_vals_domain %>%
+                                    dplyr::select(-x,-y,-cell) %>%
+                                    scale(),
+                                  centers = 20,
+                                  nstart = 1000,
+                                  iter.max = 10000000)
+
+
+
+
+```
+
+
+
+
 
 

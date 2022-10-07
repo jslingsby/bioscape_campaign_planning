@@ -10,6 +10,7 @@ library(sf)
 library(movecost) #https://www.sciencedirect.com/science/article/pii/S2352711019302341#fig2
 library(piggyback)
 library(ClimDatDownloadR)
+library(rgee)
 source("R/get_park_polygons.R")
 source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_pb_download.R")
 source("R/count_spei_anomalies.R")
@@ -588,7 +589,7 @@ source("R/count_spei_anomalies.R")
       
     }
     
-  #Drought  
+  # Drought  
 
     if(!file.exists("data/output/drought.tif")){
       
@@ -606,6 +607,44 @@ source("R/count_spei_anomalies.R")
       drought <- terra::rast("data/output/drought.tif")
       
     }  
+      
+  # Soil Depth
+
+      if(!file.exists("data/output/soil_depth_ISDASOIL.tif")){
+      
+        
+        soil_depth <- ee$Image("ISDASOIL/Africa/v1/bedrock_depth")
+  
+        #Format the domain
+        
+        domain_ee <- sf_as_ee(x = domain)
+        domain_ee <- domain_ee$geometry()
+  
+        soil_depth_raster <- ee_as_raster(image = soil_depth,
+                                         region = domain_ee,
+                                         dsn = "data/temp/soil",
+                                         maxPixels = 2000000000)
+  
+        writeRaster(x = soil_depth_raster,
+                    filename = "data/temp/soil_depth_ISDASOIL.tif")
+  
+            soil_depth_raster <- rast("data/output/soil_depth_ISDASOIL.tif")
+  
+            soil_depth_raster %>%
+              terra::resample(y = recent_fires) -> soil_depth_raster_resamp
+  
+            plot(soil_depth_raster_resamp)
+            plot(soil_depth_raster_resamp[[1]],main="Soil Depth (cm)")
+  
+            writeRaster(x = soil_depth_raster_resamp,
+                        filename = "data/output/soil_depth_ISDASOIL.tif")
+            
+      }else{
+        
+        soil_depth_raster <- rast("data/output/soil_depth_ISDASOIL.tif")
+
+      }
+
       
       
     
