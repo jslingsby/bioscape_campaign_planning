@@ -305,7 +305,7 @@ source("R/count_spei_anomalies.R")
                          tag = "raw_ndvi_modis",
                          overwrite = TRUE,
                          max_attempts = 10,
-                         sleep_time = 30)
+                         sleep_time = 10)
 
   # load ndvi and do necessary transforms  
 
@@ -596,10 +596,10 @@ source("R/count_spei_anomalies.R")
       list.files(path = "data/manual_downloads/drought/",full.names = TRUE) %>%
         count_spei_anomalies(thresh = -1,
                              domain = domain) %>%
-        resample(y = movecost_rast_out) -> drought
+        resample(y = dist_from_water) -> drought
       
       terra::writeRaster(x = drought,
-                         filename = "data/output/drought.tif")
+                         filename = "data/output/drought.tif",overwrite=TRUE)
       
       
     }else{

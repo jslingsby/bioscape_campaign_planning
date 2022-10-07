@@ -81,8 +81,7 @@ The variables going into the clustering are:
 
 dist_from_water <- rast("data/output/distance_from_freshwater.tif")
 
-drought <- terra::rast("data/output/drought.tif")%>%
-        resample(y = dist_from_water)
+drought <- terra::rast("data/output/drought.tif")
         
 climate <- terra::rast(list.files("data/climate/bio/bio_V1.2/",
                                           full.names = TRUE)) %>%
@@ -96,10 +95,12 @@ soil_depth <- rast("data/output/soil_depth_ISDASOIL.tif")[[1]]
 Here I'm using k-means clustering to divide the data into 20 clusters. The number 20 was chosen entirely arbitrarily.
 
 
-```{r do clustering}
+```{r do clustering, echo = FALSE}
 
 
-# Do clustering
+# Do clustering if needed
+
+    if(!file.exists("temp/k_clusters_domain.rds")){
       
       clim_vals_domain <-
         terra::extract(x = c(climate, soil_depth, dist_from_water, drought),
@@ -115,12 +116,48 @@ Here I'm using k-means clustering to divide the data into 20 clusters. The numbe
                                   centers = 20,
                                   nstart = 1000,
                                   iter.max = 10000000)
+      
+      saveRDS(object = k_clusters_domain,file = "temp/k_clusters_domain.rds")
+      
+    }else{
+      
+      k_clusters_domain <- readRDS(file = "temp/k_clusters_domain.rds")
+    }
 
 
 
 
 ```
 
+## Visualizing our clusters
+
+### Geographic space
+
+```{r }
+
+
+      k_raster_domain <- dist_from_water
+      k_raster_domain[1:ncell(k_raster_domain)] <- NA
+      k_raster_domain[clim_vals_domain$cell] <- k_clusters_domain$cluster
+      
+      plot(k_raster_domain)
+      varnames(k_raster_domain)  <- "cluster"
+      names(k_raster_domain)<-"cluster"
+      plot(domain, add=TRUE)
+    
+
+
+```
+### Environmental space
+
+
+## How well do our focal sites cover the full domain?
+
+## How well do the focal sites cover the vegetation types in the domain?
+
+## How are clusters at a smaller spatial scale?
+
+ Include a leaflet plot here with focal sites broken into smaller polygons by cluster.  Then color the polygons by cluster
 
 
 
