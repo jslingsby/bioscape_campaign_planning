@@ -388,7 +388,7 @@ biome_df_domain %>%
 
 ```
 
-### Clusters at a smaller spatial scale?
+### Clusters at a smaller spatial scale
 
 Include a leaflet plot here with focal sites broken into smaller polygons by cluster.  Then color the polygons by cluster
 Intersect polygons with cluster polygons
