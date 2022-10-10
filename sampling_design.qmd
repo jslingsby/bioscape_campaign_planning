@@ -337,6 +337,8 @@ ggplot(data = k_df_w_climate,
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
+#| results: hide
+#| fig.keep: 'all'
 
 # Load veg map
   vegmap <- st_read("data/manual_downloads/VEGMAP2018_AEA_16082019Final/NVM2018_AEA_V22_7_16082019_final.shp") %>%
@@ -392,8 +394,7 @@ Include a leaflet plot here with focal sites broken into smaller polygons by clu
 Intersect polygons with cluster polygons
 
 
-```{r}
-
+```{r leaflet plot of clusters}
 #| echo: FALSE
 #| message: false
 #| warning: false
