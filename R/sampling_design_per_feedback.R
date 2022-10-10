@@ -258,8 +258,7 @@ env_files <- pb_list("AdamWilsonLab/emma_envdata")
         scale_fill_manual(name="group",values=c("blue","grey"),labels=c("domain","focal"))
       
       ?geom_histogram
-      # try to get model running locally in docker
-      
+
       
 ###############################################################
       

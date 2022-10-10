@@ -51,4 +51,3 @@ data/climate/*
 #large output files
 data/output/stars_slope.tif
 data/output/insol_slope.tif
-data/output/drought.tif

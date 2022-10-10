@@ -1,19 +1,24 @@
 ---
-title: "Untitled"
+title: "Sampling Design"
 author: "Brian Maitner"
 date: "10/6/2022"
 output: html_document
 ---
 
 # Terrestrial sampling options
-
 In this file, the goal is to:
+  
+1) Examine the environmental coverage available within focal sites
+2) Attempt to subdivide those focal sites into clusters for representative sampling
 
-  1) Examine the environmental coverage available within focal sites
-  2) Attempt to subdivide those focal sites into clusters for representative sampling
 
-
-```{r setup, include=FALSE, echo=FALSE}
+```{r setup}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
+#| include: false
 
 # Load required packages
 
@@ -24,6 +29,10 @@ library(stars)
 library(sf)
 library(movecost) #https://www.sciencedirect.com/science/article/pii/S2352711019302341#fig2
 library(piggyback)
+library(tidyverse)
+library(leaflet)
+library(leafem)
+
 source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_pb_download.R")
 
 
@@ -36,10 +45,17 @@ acceptable_sites <- st_read("data/output/acceptable_sites.gpkg")
 
 ```
 
+
 # Sampling options
 
-```{r, echo=FALSE}
-
+```{r sampling options}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.cap: "Figure 1. The full domain (light grey), available study sites (dark grey), and focal study sites (red)."
+#| fig.width: 20
+#| fig.height: 14
+#| strip.white: TRUE
 
 ggplot()+
   geom_sf(data = domain, col = "black")+
@@ -49,13 +65,12 @@ ggplot()+
 
 ```
 
-Figure 1. The full domain (light grey), available study sites (dark grey), and focal study sites (red).
 
 # Focal sites
 
 Focal study sites have been selected on the basis of the following criteria:
-
-* occur in the domain
+  
+  * occur in the domain
 * occur within a national park
 * occur within 1 km of a road
 * have a mean NDVI over the last year of > 0.2
@@ -77,6 +92,11 @@ The variables going into the clustering are:
 
 
 ```{r load data for clustering and analyses}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
 
 
 dist_from_water <- rast("data/output/distance_from_freshwater.tif")
@@ -95,34 +115,48 @@ soil_depth <- rast("data/output/soil_depth_ISDASOIL.tif")[[1]]
 Here I'm using k-means clustering to divide the data into 20 clusters. The number 20 was chosen entirely arbitrarily.
 
 
-```{r do clustering, echo = FALSE}
+```{r do clustering}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
 
 
 # Do clustering if needed
 
-    if(!file.exists("temp/k_clusters_domain.rds")){
-      
-      clim_vals_domain <-
-        terra::extract(x = c(climate, soil_depth, dist_from_water, drought),
-                       y = vect(st_transform(x = domain,crs = crs(dist_from_water))),
-                       cells=TRUE,
-                       xy=TRUE)%>%
-        dplyr::select(-ID) %>%
-        na.omit() -> clim_vals_domain
-      
-      k_clusters_domain <- kmeans(x = clim_vals_domain %>%
-                                    dplyr::select(-x,-y,-cell) %>%
-                                    scale(),
-                                  centers = 20,
-                                  nstart = 1000,
-                                  iter.max = 10000000)
-      
-      saveRDS(object = k_clusters_domain,file = "temp/k_clusters_domain.rds")
-      
-    }else{
-      
-      k_clusters_domain <- readRDS(file = "temp/k_clusters_domain.rds")
-    }
+if(!file.exists("temp/k_clusters_domain.rds")){
+  
+  clim_vals_domain <-
+    terra::extract(x = c(climate, soil_depth, dist_from_water, drought),
+                   y = vect(st_transform(x = domain,crs = crs(dist_from_water))),
+                   cells=TRUE,
+                   xy=TRUE)%>%
+    dplyr::select(-ID) %>%
+    na.omit() -> clim_vals_domain
+  
+  k_clusters_domain <- kmeans(x = clim_vals_domain %>%
+                                dplyr::select(-x,-y,-cell) %>%
+                                scale(),
+                              centers = 20,
+                              nstart = 1000,
+                              iter.max = 10000000)
+  
+  saveRDS(object = k_clusters_domain,file = "temp/k_clusters_domain.rds")
+  
+}else{
+  
+  k_clusters_domain <- readRDS(file = "temp/k_clusters_domain.rds")
+  
+  clim_vals_domain <-
+    terra::extract(x = c(climate, soil_depth, dist_from_water, drought),
+                   y = vect(st_transform(x = domain,crs = crs(dist_from_water))),
+                   cells=TRUE,
+                   xy=TRUE)%>%
+    dplyr::select(-ID) %>%
+    na.omit() -> clim_vals_domain
+  
+}
 
 
 
@@ -133,33 +167,311 @@ Here I'm using k-means clustering to divide the data into 20 clusters. The numbe
 
 ### Geographic space
 
-```{r }
+```{r cluster locations}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 20
+#| fig.height: 14
+#| strip.white: TRUE
+#| fig.cap: "Figure 2. Spatial distribution of clusters. Polygons denote focal sampling locations."
 
 
-      k_raster_domain <- dist_from_water
-      k_raster_domain[1:ncell(k_raster_domain)] <- NA
-      k_raster_domain[clim_vals_domain$cell] <- k_clusters_domain$cluster
-      
-      plot(k_raster_domain)
-      varnames(k_raster_domain)  <- "cluster"
-      names(k_raster_domain)<-"cluster"
-      plot(domain, add=TRUE)
-    
+k_raster_domain <- dist_from_water
+k_raster_domain[1:ncell(k_raster_domain)] <- NA
+k_raster_domain[clim_vals_domain$cell] <- k_clusters_domain$cluster
+varnames(k_raster_domain)  <- "cluster"
+names(k_raster_domain)<-"cluster"
+
+
+# make a data frame of the whole domain for plotting
+k_raster_domain %>%
+  mask(vect(acceptable_sites)) %>%
+  as.factor() %>%
+  as.data.frame(xy = TRUE) %>%
+  na.omit()%>%
+  mutate(cluster = as.factor(cluster))-> k_df_domain_masked  
+
+#make a data frame of the focal areas
+k_raster_domain %>%
+  as.factor() %>%
+  as.data.frame(xy = TRUE) %>%
+  na.omit()%>%
+  mutate(cluster = as.factor(cluster))-> k_df_domain
+
+#plot the clusters
+ggplot(data = k_df_domain) +
+  geom_tile(aes(x = x, y = y, fill = cluster))+
+  scale_fill_discrete()+
+  geom_sf(data = st_transform(acceptable_sites,crs = crs(k_raster_domain)),fill=NA)+
+  geom_sf(data = st_transform(domain,crs = crs(k_raster_domain)),fill=NA)+
+  xlab(NULL)+
+  ylab(NULL)
+
+
+
 
 
 ```
+
+
+```{r cluster histograms}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
+#| fig.cap: "Figure 3. Distribution of clusters across the domain (grey) and focal regions (blue)."
+
+k_df_domain %>%
+  ggplot()+
+  geom_histogram(aes(cluster),stat = "count",fill="grey",group = "domain")+
+  geom_histogram(data = k_df_domain_masked,mapping = aes(cluster),fill = "blue",stat = "count",group = "focal")+
+  scale_fill_manual(name="group",values=c("blue","grey"),labels=c("domain","focal"))
+
+
+```
+
+
 ### Environmental space
 
-
-## How well do our focal sites cover the full domain?
-
-## How well do the focal sites cover the vegetation types in the domain?
-
-## How are clusters at a smaller spatial scale?
-
- Include a leaflet plot here with focal sites broken into smaller polygons by cluster.  Then color the polygons by cluster
-
-
+```{r clusters in environmental space}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.cap: "Figure 4. Mean Annual Temperature vs. Mean Annual Precipitation.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
 
 
+#Examining our spread in climate space
 
+k_df_domain %>%
+  left_join(clim_vals_domain)-> k_df_w_climate
+
+k_df_domain_masked %>%
+  left_join(clim_vals_domain)-> k_df_masked_w_climate
+
+#temp and precip
+ggplot(data = k_df_w_climate,
+       mapping = aes(x=CHELSA_bio10_01_V1.2,
+                     y = CHELSA_bio10_12_V1.2
+       ))+
+  geom_point(col = "grey")+
+  geom_point(data = k_df_masked_w_climate,
+             mapping = aes(x=CHELSA_bio10_01_V1.2,
+                           y = CHELSA_bio10_12_V1.2,
+                           col = cluster))+
+  xlab("Mean Annual Temperature")+
+  ylab("Mean Annual Precipitation")
+
+
+
+
+```
+
+```{r seasonality and soil}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig.cap: "Figure 5. Precipitation Seasonality vs. Soil Depth.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+
+#season and soil
+ggplot(data = k_df_w_climate,
+       mapping = aes(x=CHELSA_bio10_15_V1.2,
+                     y = mean_0_200
+       ))+
+  geom_point(col = "grey")+
+  geom_point(data = k_df_masked_w_climate,
+             mapping = aes(x=CHELSA_bio10_15_V1.2,
+                           y = mean_0_200,
+                           col = cluster))+
+  xlab("seasonality")+
+  ylab("soil depth")
+
+
+
+```
+
+
+```{r distance to water and drought}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig-cap: "Figure 6. Distance to water vs. Drought.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+#distance to water and droughts
+
+ggplot(data = k_df_w_climate,
+       mapping = aes(x=lyr.1,
+                     y =sum
+       ))+
+  geom_point(col = "grey")+
+  geom_point(data = k_df_masked_w_climate,
+             mapping = aes(x=lyr.1,
+                           y = sum,
+                           col = cluster))+
+  xlab("distance to water")+
+  ylab("drought")
+
+
+
+```
+
+
+### Vegetation Types
+
+```{r get veg data}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig-cap: "Figure 7. Distribution of biomes across the domain (grey) and focal regions (blue)"
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+# Load veg map
+  vegmap <- st_read("data/manual_downloads/VEGMAP2018_AEA_16082019Final/NVM2018_AEA_V22_7_16082019_final.shp") %>%
+    st_transform(crs = st_crs(k_raster_domain)) %>% #transform into our CRS
+    st_intersection(y = domain %>%
+  st_transform(crs = st_crs(k_raster_domain))) %>%
+  select(-domain)
+
+# Make a raster version of vegmap for simplicity
+  vegmap %>%
+    vect() %>%
+    terra::rasterize(y = k_raster_domain,
+                     field = "BIOME_18") -> biome_raster
+
+
+#data frames of the focal areas
+  biome_raster %>%
+    as.data.frame(xy = TRUE) %>%
+    na.omit()-> biome_df_domain
+
+  biome_raster %>%
+    mask(vect(acceptable_sites)) %>%
+    as.data.frame(xy = TRUE) %>%
+    na.omit()-> biome_df_domain_masked  
+
+#Plot the number of cells in each biome
+biome_df_domain %>%
+  ggplot()+
+  geom_bar(aes(BIOME_18),
+                 stat = "count",
+                 fill="grey",
+                 group = "domain")+
+  geom_bar(data = biome_df_domain_masked,
+                 mapping = aes(BIOME_18),
+                 fill = "blue",
+                 stat = "count",
+                 group = "focal")+
+  scale_fill_manual(name="group",
+                    values=c("blue","grey"),
+                    labels=c("domain","focal"))+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+
+
+
+
+```
+
+### Clusters at a smaller spatial scale?
+
+Include a leaflet plot here with focal sites broken into smaller polygons by cluster.  Then color the polygons by cluster
+Intersect polygons with cluster polygons
+
+
+```{r}
+
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig-cap: "Figure 8. Sampling options within parks.  Park boundaries are denoted by black lines, sampling locations are colored by cluster."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+# Convert clusters to polygons
+  k_raster_domain %>%
+    mask(vect(acceptable_sites)) %>%
+      terra::as.polygons()%>%
+    st_as_sf() -> cluster_polys
+
+#Make wgs84 versions
+  cluster_polys %>%
+    st_transform(crs = st_crs(4326)) -> cluster_polys_wgs84
+  
+  domain %>%
+    st_transform(crs = st_crs(4326)) -> domain_wgs84
+  
+  sampling_options %>%
+    st_transform(crs = st_crs(4326)) -> sampling_options_wgs84
+
+#Make a palette
+pal <- colorFactor(palette = "Set1",
+                    domain = unique(cluster_polys_wgs84$cluster))
+
+#Make lables
+labels <- sprintf(paste("Cluster: ",as.character(cluster_polys_wgs84$cluster),sep = "")) %>%
+  lapply(htmltools::HTML)
+
+labels2 <- sprintf(as.character(sampling_options_wgs84$park_name)) %>%
+  lapply(htmltools::HTML)
+
+
+
+leaflet(data = cluster_polys_wgs84) %>%
+  addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
+  #addProviderTiles("NASAGIBS.ModisTerraTrueColorCR", group = "True Colors") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+  addMapPane("clusters", zIndex = 420) %>%
+  addMapPane("parks", zIndex = 410)%>% 
+  addPolygons(stroke = FALSE,
+              group = "cluster",
+              color = ~pal(cluster),
+              fillOpacity = 1,
+              label = labels,
+              options = pathOptions(pane = "clusters"))%>%
+  addPolygons(data = domain_wgs84,
+              stroke = TRUE,
+              color = "grey",
+              fill = FALSE,
+              weight = 3) %>%
+    addPolygons(data = sampling_options_wgs84,
+              stroke = TRUE,
+              color = "black",
+              fill = TRUE,
+              weight = 2,
+              label = labels2,
+              fillColor = NA,
+              fillOpacity = 0,
+              group = "Park",
+              options = pathOptions(pane = "parks")) %>%
+    addMouseCoordinates() %>%
+    #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
+  leaflet::addLegend(position = "bottomright",
+            pal = pal,
+            values = unique(cluster_polys_wgs84$cluster),
+            opacity = 1,
+            title = "Cluster",
+            labels = unique(cluster_polys_wgs84$cluster)) %>%
+    addLayersControl(
+    baseGroups = c("World Imagery","NatGeo"),
+    overlayGroups = c("Park"),
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topright")
+
+
+
+```
