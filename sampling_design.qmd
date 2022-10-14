@@ -345,7 +345,7 @@ ggplot(data = k_df_w_climate,
     st_transform(crs = st_crs(k_raster_domain)) %>% #transform into our CRS
     st_intersection(y = domain %>%
   st_transform(crs = st_crs(k_raster_domain))) %>%
-  select(-domain)
+  dplyr::select(-domain)
 
 # Make a raster version of vegmap for simplicity
   vegmap %>%

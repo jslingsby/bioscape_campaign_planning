@@ -298,7 +298,7 @@ source("R/count_spei_anomalies.R")
       filter(tag == "raw_ndvi_modis") %>%
       arrange(file_name) %>%
       filter(file_name != "log.csv") %>%
-      slice_tail(n = 24)%>%
+      #slice_tail(n = 24)%>%
       pull(file_name) %>%
       robust_pb_download(dest = "temp/recent_ndvi",
                          repo = "AdamWilsonLab/emma_envdata",
@@ -512,7 +512,7 @@ source("R/count_spei_anomalies.R")
     #union and create a new object
     st_union() -> acceptable_sites
   
-  plot(acceptable_sites)
+  #plot(acceptable_sites)
   
   # acceptable_sites%>%
   # st_write(dsn = "data/output/acceptable_sites.shp",
