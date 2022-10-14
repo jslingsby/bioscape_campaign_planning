@@ -398,10 +398,18 @@ Intersect polygons with cluster polygons
 #| echo: FALSE
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 8. Sampling options within parks.  Park boundaries are denoted by black lines, sampling locations are colored by cluster."
+#| fig-cap: "Figure 8. Sampling options within parks.  Park boundaries are denoted by black lines, sampling locations are colored by cluster. Additional polygons delimited current flight plans (white) and areas of interest indicated by BIOSCAPE PIs (brown)."
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
+
+#Pull in other bioscape layers
+
+flights <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_flightboxes.gpkg")%>%
+    st_transform(crs = st_crs(4326))
+
+team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg")%>%
+    st_transform(crs = st_crs(4326))
 
 # Convert clusters to polygons
   k_raster_domain %>%
@@ -439,7 +447,7 @@ leaflet(data = cluster_polys_wgs84) %>%
   addMapPane("clusters", zIndex = 420) %>%
   addMapPane("parks", zIndex = 410)%>% 
   addPolygons(stroke = FALSE,
-              group = "cluster",
+              group = "Cluster",
               color = ~pal(cluster),
               fillOpacity = 1,
               label = labels,
@@ -459,6 +467,15 @@ leaflet(data = cluster_polys_wgs84) %>%
               fillOpacity = 0,
               group = "Park",
               options = pathOptions(pane = "parks")) %>%
+      addPolygons(data = flights,
+                  stroke = TRUE,
+                  color = "white",
+                  group = "Flights") %>%
+      addPolygons(data = team_requests%>%
+                st_zm(drop = T, what = "ZM"),
+                  stroke = TRUE,
+                  color = "brown",
+                  group = "Requests")%>%  
     addMouseCoordinates() %>%
     #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
   leaflet::addLegend(position = "bottomright",
@@ -469,7 +486,7 @@ leaflet(data = cluster_polys_wgs84) %>%
             labels = unique(cluster_polys_wgs84$cluster)) %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Park"),
+    overlayGroups = c("Park","Flights","Cluster","Requests"),
     options = layersControlOptions(collapsed = FALSE),
     position = "topright")
 
