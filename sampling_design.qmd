@@ -83,7 +83,7 @@ To better stratify our sampling, we'll use k-means clustering to divide up the c
 
 The variables going into the clustering are:
 
-* Distance from water (including either rivers or wetlands, but not including the ocean)
+* ~~Distance from water (including either rivers or wetlands, but not including the ocean)~~
 * Drought (the number of droughts since 2000, quantified as the number SPEI values less than -1 since 2000)
 * Soil Depth (from ISDASOIL, depth to bedrock, with a maximum values of 2 meters)
 * Annual Mean Temperature
@@ -128,7 +128,10 @@ Here I'm using k-means clustering to divide the data into 20 clusters. The numbe
 if(!file.exists("temp/k_clusters_domain.rds")){
   
   clim_vals_domain <-
-    terra::extract(x = c(climate, soil_depth, dist_from_water, drought),
+    terra::extract(x = c(climate,
+                         soil_depth,
+                         #dist_from_water,
+                         drought),
                    y = vect(st_transform(x = domain,crs = crs(dist_from_water))),
                    cells=TRUE,
                    xy=TRUE)%>%
