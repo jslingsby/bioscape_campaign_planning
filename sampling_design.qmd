@@ -408,7 +408,7 @@ Intersect polygons with cluster polygons
 
 #Pull in other bioscape layers
 
-flights <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_flightboxes.gpkg")%>%
+flights <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg")%>%
     st_transform(crs = st_crs(4326))
 
 team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg")%>%
