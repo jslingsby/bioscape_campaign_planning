@@ -138,9 +138,40 @@ era_cloud_weighted %>%
   scale_fill_gradient(low = "sky blue",high = "white")+
   facet_wrap(~month)
 
+# number of days
+
+era_cloud_weighted %>%
+  group_by(ID,doy,month,year)%>%
+  summarize(max_cc = max(wgt_mean_cc))%>%
+  mutate(binary_clouds = dplyr::if_else(max_cc <= .1,true = 0,false = 1))%>%
+  group_by(ID, month)%>%
+  summarize(prop_cloud_cover = sum(binary_clouds)/n(),
+            cloud_days = sum(binary_clouds),
+            total_days = n())%>%
+  inner_join(x = boxes)%>%
+  ggplot(mapping = aes(fill = prop_cloud_cover))+
+  geom_sf()+
+  geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
+  scale_fill_gradient(low = "sky blue",high = "white",limits=c(0,1))+
+  geom_sf_text(aes(label = round(prop_cloud_cover,digits = 2)))+
+  facet_wrap(~month)
 
 
-
+era_cloud_weighted %>%
+  group_by(ID,doy,month,year)%>%
+  summarize(max_cc = max(wgt_mean_cc))%>%
+  mutate(binary_clear = dplyr::if_else(max_cc <= .1,true = 1,false = 0))%>%
+  group_by(ID, month)%>%
+  summarize(prop_clear = sum(binary_clear)/n(),
+            clear_days = sum(binary_clear),
+            total_days = n())%>%
+  inner_join(x = boxes)%>%
+  ggplot(mapping = aes(fill = prop_clear))+
+  geom_sf()+
+  geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
+  scale_fill_gradient(low = "white",high = "sky blue",limits=c(0,1))+
+  geom_sf_text(aes(label = round(prop_clear,digits = 2)))+
+  facet_wrap(~month)
 
 
 
