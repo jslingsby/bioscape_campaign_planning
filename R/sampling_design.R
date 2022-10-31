@@ -292,7 +292,7 @@ source("R/count_spei_anomalies.R")
   
     env_files <- pb_list("AdamWilsonLab/emma_envdata")  
 
-  # pull most recent NDVI
+  # pull NDVI
   
     env_files %>%
       filter(tag == "raw_ndvi_modis") %>%
@@ -311,7 +311,7 @@ source("R/count_spei_anomalies.R")
 
     recent_ndvi <- ((terra::rast(list.files("temp/recent_ndvi/",full.names = TRUE))/100)-1)
 
-  # take mean ndvi over the last 12 months or so
+  # take mean ndvi
 
     recent_ndvi <- terra::app(x = recent_ndvi,
                             fun = function(x){mean(na.omit(x))})
@@ -593,13 +593,48 @@ source("R/count_spei_anomalies.R")
 
     if(!file.exists("data/output/drought.tif")){
       
+      # list.files(path = "data/manual_downloads/drought/",full.names = TRUE) %>%
+      #   count_spei_anomalies(thresh = -1,
+      #                        domain = domain) %>%
+      #   resample(y = dist_from_water) -> drought
+      # 
+      # terra::writeRaster(x = drought,
+      #                    filename = "data/output/drought.tif",overwrite=TRUE)
+      
       list.files(path = "data/manual_downloads/drought/",full.names = TRUE) %>%
         count_spei_anomalies(thresh = -1,
-                             domain = domain) %>%
-        resample(y = dist_from_water) -> drought
+                             domain = domain) -> drought
+      
+      #Next, fill in NAs within the domain    
+      
+        #need to know which cells touch the domain
+      
+          terra::rasterize(x = domain %>%
+                             st_transform(st_crs(drought)) %>%
+                             vect(),
+                           y = drought,touches=TRUE) -> domain_cells
+          
+        # fill in the edges of the drought layer
+          
+          drought %>%
+            focal(w =matrix(1, 3, 3),
+                  fun = function(x){mean(na.omit(x))},
+          na.policy = "only"
+          ) %>%
+        
+        # mask filled-in drought layer to only cells in the domain        
+            
+          mask(domain_cells) %>%
+        
+        # resample to desired raster
+
+          resample(y = dist_from_water) -> drought
       
       terra::writeRaster(x = drought,
-                         filename = "data/output/drought.tif",overwrite=TRUE)
+                         filename = "data/output/drought.tif",
+                         overwrite=TRUE)
+      
+      
       
       
     }else{
