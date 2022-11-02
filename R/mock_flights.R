@@ -88,7 +88,8 @@ era_cloud_weighted %>%
   geom_tile(mapping = aes(x = doy,
                           y = ID,
                           fill = max_cc))+
-  scale_fill_gradient(low = "sky blue",high = "white")+facet_wrap(~year)
+  scale_fill_gradient(low = "sky blue",high = "white")+
+  facet_wrap(~year)
 
 
 era_cloud_weighted %>%

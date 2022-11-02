@@ -2,6 +2,8 @@
   library(rgee)
   library(targets)
   library(sf)
+  library(tidyverse)
+  library(lubridate)
 
 # install rgee python dependencies
   rgee::ee_install()
@@ -51,7 +53,7 @@
 
     sens_filtered <-
       filter_dates(collection = sens,
-                   datestart = "2020-09-30",
+                   datestart = "2000-01-01",  #works back to "2020-09-30"
                    datestop = paste(format(Sys.time(), "%Y-%m-%d"),sep = ""),
                    daystart = 273,
                    daystop = 366)
@@ -121,7 +123,7 @@
   
   
   flat_dl$start()#starts the processing
-  ee_monitoring(flat_dl,max_attempts = 1000) #keeps track of progress
+  ee_monitoring(flat_dl,max_attempts = 100000) #keeps track of progress
 
 # Download table from drive  
   googledrive::drive_download(file = "EMMA/cloud_stats.csv",
@@ -129,4 +131,86 @@
                               overwrite = TRUE) #note: if dling more than one need to add a prefix or something
   
   cloud_table <- read.csv("data/test_cloud_stats.csv")
+
   
+# Parse date
+
+  
+  cloud_table %>%
+    mutate(year = year(date),
+           month = month(date),
+           day = day(date),
+           day_of_year = yday(date)) -> cloud_table
+  
+
+# Plots
+
+  
+  #ID by day of year
+  
+    cloud_table %>%
+      group_by(id,day_of_year)%>%
+      ggplot() +
+      geom_tile(mapping = aes(x = day_of_year,
+                              y = id,
+                              fill = mean))+
+      scale_fill_gradient(low = "sky blue",
+                          high = "white")
+    
+  # mean cloud cover
+    cloud_table %>%
+      group_by(id)%>%
+      summarize(mean_cc = mean(na.omit(mean)))%>%
+      inner_join(x = boxes_sf)%>%
+      ggplot(mapping = aes(fill = mean_cc))+
+      geom_sf()+
+      geom_sf(data = domain_sf,inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "sky blue",high = "white")
+    
+  # mean monthly cloud cover
+    cloud_table %>%
+      group_by(id, month)%>%
+      filter(month != 9)%>%
+      summarize(mean_cc = mean(na.omit(mean)))%>%
+      inner_join(x = boxes_sf)%>%
+      ggplot(mapping = aes(fill = mean_cc))+
+      geom_sf()+
+      geom_sf(data = domain_sf,
+              inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "sky blue",high = "white")+
+      facet_wrap(~month)+
+      geom_sf_text(aes(label = round(mean_cc,digits = 2)))
+    
+    
+  # proportion of cloudy days (based on a threshold)  
+    cloud_table %>%
+      na.omit()%>%
+      filter(month != 9)%>%
+      group_by(id,day_of_year,month,year)%>%
+      summarize(mean = mean(na.omit(mean)))%>%
+      mutate(binary_clouds = dplyr::if_else(mean <= .1,true = 0,false = 1))%>%
+      group_by(id, month)%>%
+      summarize(prop_cloud_cover = sum(binary_clouds)/n(),
+                cloud_days = sum(binary_clouds),
+                total_days = n()) %>%
+      inner_join(x = boxes_sf)%>%
+      ggplot(mapping = aes(fill = prop_cloud_cover))+
+      geom_sf()+
+      geom_sf(data = domain_sf,inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "sky blue",high = "white",limits=c(0,1))+
+      geom_sf_text(aes(label = round(prop_cloud_cover,digits = 2)))+
+      facet_wrap(~month)
+    
+  
+    
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+      
