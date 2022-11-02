@@ -17,7 +17,7 @@ count_spei_anomalies <- function(file_list = list.files("data/manual_downloads/d
     rast_i %>%
     terra::crop(y = domain %>%
                   st_transform(crs = crs(rast_i))%>%
-                  ext())->rast_i 
+                  ext()) -> rast_i 
     
     
     #plot(rast_i)

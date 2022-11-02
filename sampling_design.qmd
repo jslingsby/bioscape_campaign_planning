@@ -306,23 +306,23 @@ ggplot(data = k_df_w_climate,
 #| echo: FALSE
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 6. Distance to water vs. Drought.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig-cap: "Figure 6. Precipitation vs. Drought.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
 
-#distance to water and droughts
+#Precipitation and droughts
 
 ggplot(data = k_df_w_climate,
-       mapping = aes(x=lyr.1,
+       mapping = aes(x=CHELSA_bio10_12_V1.2,
                      y =sum
        ))+
   geom_point(col = "grey")+
   geom_point(data = k_df_masked_w_climate,
-             mapping = aes(x=lyr.1,
+             mapping = aes(x=CHELSA_bio10_12_V1.2,
                            y = sum,
                            col = cluster))+
-  xlab("distance to water")+
+  xlab("annual precipitation")+
   ylab("drought")
 
 
@@ -369,12 +369,14 @@ ggplot(data = k_df_w_climate,
 
 #Plot the number of cells in each biome
 biome_df_domain %>%
+  filter(BIOME_18 != "<Null>")%>%
   ggplot()+
   geom_bar(aes(BIOME_18),
                  stat = "count",
                  fill="grey",
                  group = "domain")+
-  geom_bar(data = biome_df_domain_masked,
+  geom_bar(data = biome_df_domain_masked%>%
+  filter(BIOME_18 != "<Null>"),
                  mapping = aes(BIOME_18),
                  fill = "blue",
                  stat = "count",
@@ -391,11 +393,9 @@ biome_df_domain %>%
 
 ```
 
-### Clusters at a smaller spatial scale
+### Interactive map
 
-Include a leaflet plot here with focal sites broken into smaller polygons by cluster.  Then color the polygons by cluster
-Intersect polygons with cluster polygons
-
+The map below is interactive and allows zooming, moving, and toggling layers on/off.
 
 ```{r leaflet plot of clusters}
 #| echo: FALSE
@@ -408,10 +408,10 @@ Intersect polygons with cluster polygons
 
 #Pull in other bioscape layers
 
-flights <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg")%>%
+flights <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg",quiet = TRUE)%>%
     st_transform(crs = st_crs(4326))
 
-team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg")%>%
+team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE)%>%
     st_transform(crs = st_crs(4326))
 
 # Convert clusters to polygons
