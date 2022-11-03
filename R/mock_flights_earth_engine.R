@@ -124,7 +124,8 @@
   
   flat_dl$start()#starts the processing
   ee_monitoring(flat_dl,max_attempts = 100000) #keeps track of progress
-
+###################################################################################################################
+  
 # Download table from drive  
   googledrive::drive_download(file = "EMMA/cloud_stats.csv",
                               path = "data/test_cloud_stats.csv",
@@ -155,7 +156,11 @@
                               y = id,
                               fill = mean))+
       scale_fill_gradient(low = "sky blue",
-                          high = "white")
+                          high = "white")+
+      facet_wrap(~year)
+    
+    
+    
     
   # mean cloud cover
     cloud_table %>%
@@ -165,7 +170,8 @@
       ggplot(mapping = aes(fill = mean_cc))+
       geom_sf()+
       geom_sf(data = domain_sf,inherit.aes = FALSE,fill=NA)+
-      scale_fill_gradient(low = "sky blue",high = "white")
+      scale_fill_gradient(low = "sky blue",high = "white")+
+      geom_sf_text(aes(label = round(mean_cc,digits = 2)))
     
   # mean monthly cloud cover
     cloud_table %>%
@@ -202,10 +208,39 @@
       facet_wrap(~month)
     
   
+    #prop clear days
+    cloud_table %>%
+      na.omit()%>%
+      filter(month != 9)%>%
+      mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
+      group_by(id, month)%>%
+      summarize(prop_clear = sum(binary_clear)/n(),
+                clear_days = sum(binary_clear),
+                total_days = n())%>%
+      inner_join(x = boxes_sf)%>%
+      ggplot(mapping = aes(fill = prop_clear))+
+      geom_sf()+
+      geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "white",high = "sky blue",limits=c(0,1))+
+      geom_sf_text(aes(label = round(prop_clear,digits = 2)))+
+      facet_wrap(~month)
+  
+    #prop clear days
+    cloud_table %>%
+      na.omit()%>%
+      filter(month != 9)%>%
+      mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
+      group_by(id)%>%
+      summarize(prop_clear = sum(binary_clear)/n(),
+                clear_days = sum(binary_clear),
+                total_days = n())%>%
+      inner_join(x = boxes_sf)%>%
+      ggplot(mapping = aes(fill = prop_clear))+
+      geom_sf()+
+      geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "white",high = "sky blue",limits=c(0,1))+
+      geom_sf_text(aes(label = round(prop_clear,digits = 2)))
     
-  
-  
-  
   
   
   

@@ -127,7 +127,9 @@ era_cloud_weighted %>%
   ggplot(mapping = aes(fill = mean_cc))+
   geom_sf()+
   geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
-  scale_fill_gradient(low = "sky blue",high = "white")
+  scale_fill_gradient(low = "sky blue",high = "white")+
+  geom_sf_text(aes(label = round(mean_cc,digits = 2)))
+  
 
 era_cloud_weighted %>%
   group_by(ID, month)%>%
@@ -137,7 +139,8 @@ era_cloud_weighted %>%
   geom_sf()+
   geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
   scale_fill_gradient(low = "sky blue",high = "white")+
-  facet_wrap(~month)
+  facet_wrap(~month)+
+  geom_sf_text(aes(label = round(mean_cc,digits = 2)))
 
 # number of days
 

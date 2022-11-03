@@ -29,7 +29,7 @@ batch_extract <- function(x,y,batch_size = 1000, ...){
       
       out %>%
       bind_cols(out_i[2:ncol(out_i)]%>%
-                  select(-fraction))->out
+                  dplyr::select(-fraction))->out
 
       
       
