@@ -2,7 +2,9 @@
 title: "Flight Planning"
 author: "Brian Maitner"
 date: "11/3/2022"
-output: html_document
+output:
+  html_document:
+    code_folding: hide
 ---
 
 # Flight planning
@@ -11,12 +13,14 @@ In this file, the goal is to quantify the historical cloud cover in the planned 
 
 
 ```{r setup}
-#| echo: false
+#| echo: true
 #| message: false
 #| warning: false
 #| fig.width: 10
 #| fig.height: 10
-#| include: false
+#| include: true
+#| code-fold: true
+#| code-summary: "Show the code"
 
 # Load required packages
 
@@ -35,11 +39,13 @@ In this file, the goal is to quantify the historical cloud cover in the planned 
 #Load required data
 
   # get domain
-    domain <- st_read("data/output/domain.gpkg")
+    domain <- st_read("data/output/domain.gpkg",
+                      quiet = TRUE)
     domain_sf <- domain
   
   # get flight boxes
-    boxes <- st_read("data/flight_planning/20221026_flightboxes.gpkg")
+    boxes <- st_read("data/flight_planning/20221026_flightboxes.gpkg",
+                     quiet = TRUE)
     boxes$id <- 1:20 # need a unique ID to make things easier
     boxes_sf <- boxes
     
@@ -67,13 +73,14 @@ In this file, the goal is to quantify the historical cloud cover in the planned 
 # Flight Boxes
 
 ```{r flight boxes}
-#| echo: false
+#| echo: true
 #| message: false
 #| warning: false
 #| fig.cap: "Figure 1. The full domain (light grey) and planned flight boxes (green). Numbers shown are box IDs (used below)."
 #| fig.width: 20
 #| fig.height: 14
 #| strip.white: TRUE
+#| code-fold: true
 
 ggplot()+
   geom_sf(data = domain)+
@@ -99,14 +106,13 @@ Focal study sites have been selected on the basis of the following criteria:
 
 
 ```{r clouds over time}
-#| echo: false
+#| echo: true
 #| message: false
 #| warning: false
 #| fig.width: 10
 #| fig.height: 10
 #| fig.cap: "Figure 2. Rows represent different flight boxes (see Fig 1.), columns different days."
-
-
+#| code-fold: true
   #ID by day of year
   
     cloud_table %>%
@@ -130,13 +136,13 @@ Focal study sites have been selected on the basis of the following criteria:
 
 
 ```{r monthly cloud cover}
-#| echo: false
+#| echo: true
 #| message: false
 #| warning: false
 #| fig.width: 10
 #| fig.height: 20
 #| fig.cap: "Figure 3. The full domain (light grey) and planned flight boxes, colored by mean monthly cloud cover.Numbers on flight boxes refer to mean cloud cover."
-
+#| code-fold: true
 
 # mean monthly cloud cover
     cloud_table %>%
@@ -164,14 +170,14 @@ Focal study sites have been selected on the basis of the following criteria:
 Here, we define a "clear" day as one with a mean cloud cover of less than 10 percent.
 
 ```{r clear days}
-#| echo: false
+#| echo: true
 #| message: false
 #| warning: false
 #| fig.width: 20
 #| fig.height: 14
 #| strip.white: TRUE
 #| fig.cap: "Figure 4. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
-
+#| code-fold: true
 
     #prop clear days
     cloud_table %>%
@@ -203,14 +209,14 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 The map below is interactive and allows zooming, moving, and toggling layers on/off.
 
 ```{r leaflet plot of clusters}
-#| echo: FALSE
+#| echo: true
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 5. "
+#| fig-cap: "Figure 5. Interactive Map"
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
-
+#| code-fold: true
 #Pull in other bioscape layers
 
     cloud_table %>%
@@ -279,3 +285,60 @@ leaflet(data = flights) %>%
 
 
 ```
+
+# Campaign Simulations
+
+```{r campaing time estimate}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 15
+#| fig.height: 10
+#| strip.white: TRUE
+#| fig.cap: "Figure 5. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
+      
+      #readRDS("data/temp/sim_output_10pct.RDS")%>%
+      readRDS("data/temp/sim_output_05pct.RDS")%>%
+        #readRDS("data/temp/sim_output_01pct.RDS")%>%  
+        na.omit()%>%
+        group_by(start_date)%>%
+        summarise(sites_done = sum(!is.na(box_id)),
+                  mean_cc = mean(na.omit(cloud_cover)),
+                  days_taken = max(date)-min(start_date)+1)%>%
+        ungroup()%>%
+        mutate(day_of_year = yday(as_date(start_date)),
+               year = year(as_date(start_date)))%>%
+        group_by(day_of_year)%>%
+        summarise(q0 = quantile(days_taken,probs=0),
+                  q25 = quantile(days_taken,probs=0.05),
+                  q50 = quantile(days_taken,probs=0.5),
+                  q75 = quantile(days_taken,probs=0.95),
+                  q1 = quantile(days_taken,probs=1)
+        ) %>%
+        mutate(date = as.Date(day_of_year,origin="2022-12-31"))%>%
+        mutate(start_of_month = floor_date(date,unit = "month"),
+               month_label = month(start_of_month,label = TRUE),
+               julian_label = yday(start_of_month),
+               day_of_month = mday(date),
+               md_label = paste(month_label,"-",day_of_month,sep = ""))->test
+      
+      test %>%    
+        ggplot()+
+        geom_ribbon(aes(ymin=q0,ymax=q1, x = day_of_year),col="grey",alpha=0.2)+
+        geom_ribbon(aes(ymin=q25,ymax=q75, x = day_of_year),col="grey",alpha=0.5)+
+        geom_line(aes(x=day_of_year,y=q50))+
+        geom_hline(yintercept = 37,lty=2)+
+        scale_x_continuous(breaks = test$day_of_year,
+                           labels = test$md_label)+ #note: it seems like it should be possible to inherit these
+        ylab("Flight Days Needed")+
+        xlab("Campaign Starting Day")+
+        geom_text(label = "estimated total number of flight days",
+                  y=37.3,
+                  x=280)+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+      
+
+
+
+```
+

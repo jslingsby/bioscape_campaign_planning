@@ -28,7 +28,7 @@
     
     time_window <- 42 # the number of consecutive days you will be flying
     
-    quality_threshold <- 0.05 #the maximum fraction of cloudy pixels to accept within a flight box
+    quality_threshold <- 0.01 #the maximum fraction of cloudy pixels to accept within a flight box
     
     cloud_table %>%
       mutate(unix_date = as.numeric(as_date(date))) -> cloud_table
@@ -86,7 +86,7 @@
           # Pull the cloud data
 
             cloud_table %>%
-              filter(unix_date == d)%>% #filter to date
+              filter(unix_date == d) %>% #filter to date
               filter(mean <= quality_threshold) %>% #filter by threshold
               filter(id %in% potential_sites) %>% #toss sites that have already been done
               left_join(priorities) %>% #combine with prioritizaton
@@ -118,8 +118,8 @@
     
     
 #####################################################################
-  
-    
+    #saveRDS(object = simulation_output,file = "data/temp/sim_output_01pct.RDS")
+  #saveRDS(object = simulation_output,file = "data/temp/sim_output_05pct.RDS")
   #saveRDS(object = simulation_output,file = "data/temp/sim_output_10pct.RDS")    
     
   # Digging into simulation output
@@ -139,12 +139,136 @@
                 days_taken = max(date)-min(start_date)+1)->sim_summary
 
     
+    
     hist(sim_summary$days_taken)
     hist(sim_summary$sites_done)
-    unique(sim_summary$sites_done)    
+    unique(sim_summary$sites_done)
     
+    simulation_output %>%
+      na.omit()%>%
+      group_by(start_date)%>%
+      summarise(sites_done = sum(!is.na(box_id)),
+                mean_cc = mean(na.omit(cloud_cover)),
+                days_taken = max(date)-min(start_date)+1)%>%
+      mutate(day_char = as_date(start_date))%>%
+      mutate(year = year(day_char),
+             month = month(day_char),
+             day = day(day_char),
+             day_of_year = yday(day_char))%>%
+      ggplot(mapping = aes(x=day_of_year,y=days_taken))+
+      geom_line()+
+      facet_wrap(~year)
     
+    simulation_output %>%
+      na.omit()%>%
+      group_by(start_date)%>%
+      summarise(sites_done = sum(!is.na(box_id)),
+                mean_cc = mean(na.omit(cloud_cover)),
+                days_taken = max(date)-min(start_date)+1)%>%
+      mutate(day_char = as_date(start_date))%>%
+      mutate(year = year(day_char),
+             month = month(day_char),
+             day = day(day_char),
+             day_of_year = yday(day_char))%>%
+      ggplot(mapping = aes(x=day_of_year,y=mean_cc))+
+      geom_line()+
+      facet_wrap(~year)
+
     
+    head(sim_summary)
+    
+    #readRDS("data/temp/sim_output_10pct.RDS")%>%
+    readRDS("data/temp/sim_output_05pct.RDS")%>%
+    #readRDS("data/temp/sim_output_01pct.RDS")%>%  
+      na.omit()%>%
+      group_by(start_date)%>%
+      summarise(sites_done = sum(!is.na(box_id)),
+                mean_cc = mean(na.omit(cloud_cover)),
+                days_taken = max(date)-min(start_date)+1)%>%
+      ungroup()%>%
+      mutate(day_of_year = yday(as_date(start_date)),
+             year = year(as_date(start_date)))%>%
+      group_by(day_of_year)%>%
+    summarise(q0 = quantile(days_taken,probs=0),
+                q25 = quantile(days_taken,probs=0.05),
+                q50 = quantile(days_taken,probs=0.5),
+                q75 = quantile(days_taken,probs=0.95),
+                q1 = quantile(days_taken,probs=1)
+                ) %>%
+      mutate(date = as.Date(day_of_year,origin="2022-12-31"))%>%
+      mutate(start_of_month = floor_date(date,unit = "month"),
+             month_label = month(start_of_month,label = TRUE),
+             julian_label = yday(start_of_month),
+             day_of_month = mday(date))->test
+      
+      test %>%    
+      ggplot()+
+      geom_ribbon(aes(ymin=q0,ymax=q1, x = day_of_year),col="grey",alpha=0.2)+
+      geom_ribbon(aes(ymin=q25,ymax=q75, x = day_of_year),col="grey",alpha=0.5)+
+      geom_line(aes(x=day_of_year,y=q50))+
+      geom_hline(yintercept = 37,lty=2)+
+      scale_x_continuous(breaks = test$julian_label,
+                         labels = test$month_label,
+                         minor_breaks = test$day_of_year)+ #note: it seems like it should be possible to inherit these
+      ylab("Flight Days Needed")+
+      xlab("Campaign Starting Day")+
+        geom_text(label = "estimated total number of flight days",
+                   y=37.3,
+                   x=280)
+      
+
+  #Make x-axis actual date (for 2023)
+  #add label to horizontal line saying "estimated total number of flight days"  
+
+      
+      #readRDS("data/temp/sim_output_10pct.RDS")%>%
+      readRDS("data/temp/sim_output_05pct.RDS")%>%
+        #readRDS("data/temp/sim_output_01pct.RDS")%>%  
+        na.omit()%>%
+        group_by(start_date)%>%
+        summarise(sites_done = sum(!is.na(box_id)),
+                  mean_cc = mean(na.omit(cloud_cover)),
+                  days_taken = max(date)-min(start_date)+1)%>%
+        ungroup()%>%
+        mutate(day_of_year = yday(as_date(start_date)),
+               year = year(as_date(start_date)))%>%
+        group_by(day_of_year)%>%
+        summarise(q0 = quantile(days_taken,probs=0),
+                  q25 = quantile(days_taken,probs=0.05),
+                  q50 = quantile(days_taken,probs=0.5),
+                  q75 = quantile(days_taken,probs=0.95),
+                  q1 = quantile(days_taken,probs=1)
+        ) %>%
+        mutate(date = as.Date(day_of_year,origin="2022-12-31"))%>%
+        mutate(start_of_month = floor_date(date,unit = "month"),
+               month_label = month(start_of_month,label = TRUE),
+               julian_label = yday(start_of_month),
+               day_of_month = mday(date),
+               md_label = paste(month_label,"-",day_of_month,sep = ""))->test
+      
+      test %>%    
+        ggplot()+
+        geom_ribbon(aes(ymin=q0,ymax=q1, x = day_of_year),col="grey",alpha=0.2)+
+        geom_ribbon(aes(ymin=q25,ymax=q75, x = day_of_year),col="grey",alpha=0.5)+
+        geom_line(aes(x=day_of_year,y=q50))+
+        geom_hline(yintercept = 37,lty=2)+
+        scale_x_continuous(breaks = data$day_of_year,
+                           labels = test$md_label)+ #note: it seems like it should be possible to inherit these
+        ylab("Flight Days Needed")+
+        xlab("Campaign Starting Day")+
+        geom_text(label = "estimated total number of flight days",
+                  y=37.3,
+                  x=280)+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+      
+      
+#####################
+    
+    library(ggplot2)
+    library(tidyverse)
+    
+    #saveRDS(object = simulation_output,file = "data/temp/sim_output_10pct.RDS")    
+    sim_10pct <- readRDS("data/temp/sim_output_10pct.RDS")
     
     
     
