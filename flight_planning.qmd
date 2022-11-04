@@ -53,7 +53,7 @@ In this file, the goal is to quantify the historical cloud cover in the planned 
   # Download table from drive (to see the code underlying this or to update the data, see the file "R/mock_flights_earth_engine.R")
     googledrive::drive_download(file = "EMMA/cloud_stats.csv",
                                 path = "data/test_cloud_stats.csv",
-                                overwrite = TRUE) #note: if dling more than one need to add a prefix or something
+                                overwrite = TRUE)
     
     cloud_table <- read.csv("data/test_cloud_stats.csv")
 
@@ -78,15 +78,16 @@ In this file, the goal is to quantify the historical cloud cover in the planned 
 #| message: false
 #| warning: false
 #| fig.cap: "Figure 1. The full domain (light grey) and planned flight boxes (green). Numbers shown are box IDs (used below)."
-#| fig.width: 20
-#| fig.height: 14
+#| fig.width: 10
+#| fig.height: 8
 #| strip.white: TRUE
 #| code-fold: true
 
 {ggplot()+
   geom_sf(data = domain)+
   geom_sf(data = boxes_sf,fill="light green")+
-      geom_sf_text(data = boxes_sf,aes(label = id),size=10)+
+      geom_sf_text(data = boxes_sf,
+                   aes(label = id),size=8)+
   labs(x=NULL,y=NULL)} %>%
   ggplotly()
 
@@ -177,8 +178,8 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 20
-#| fig.height: 14
+#| fig.width: 10
+#| fig.height: 8
 #| strip.white: TRUE
 #| fig.cap: "Figure 4. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
 #| code-fold: true
@@ -197,7 +198,7 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
       geom_sf()+
       geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
       scale_fill_gradient(low = "white",high = "sky blue",limits=c(0,1))+
-      geom_sf_text(aes(label = round(prop_clear,digits = 2)),size=10)+
+      geom_sf_text(aes(label = round(prop_clear,digits = 2)),size=8)+
       labs(fill = "Prop.\nClear",
            x=NULL,
            y=NULL)} %>%
@@ -297,11 +298,13 @@ leaflet(data = flights) %>%
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 15
+#| fig.width: 14
 #| fig.height: 10
 #| strip.white: TRUE
 #| fig.cap: "Figure 5. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
      
+  #code underlying simulations available in the file "R/flight_window.R"
+
    
       #readRDS("data/temp/sim_output_10pct.RDS")%>%
       readRDS("data/temp/sim_output_05pct.RDS")%>%
