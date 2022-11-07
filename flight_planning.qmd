@@ -7,8 +7,10 @@ output:
     code_folding: hide
 ---
 
-# Flight planning
+
 In this file, the goal is to quantify the historical cloud cover in the planned flight boxes and to assess the implications for BioSCape operations.
+
+To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear".
   
 
 

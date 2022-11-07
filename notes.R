@@ -13,10 +13,20 @@ docker exec -itu rstudio hungry_engelbart test
 
 ##########################################
 
+# To add to flight planning:
 
+  # could you add some more intro information to the top of the new flight_planning website that would help someone looking at this for the first time to understand what we did?  
+  #   
+  #   1) add header with MODIS Cloud flags and a short description of where the cloud data come from (MOD09GA, etc.) and a map of ~3 days binary cloud cover to make it clear what the 'raw' data are.  These could be layers in the interactive map (see next point)
+  # 2) move up the interactive map with google basemap showing boxes and polygons and a raster of mean total cloud cover (over 20 years during the oct-december  window).  This will show the overall cloud frequency patterns.  Add the box numbers as labels.
+  # 3) Drop the Flight boxes graph because it's now redundant with above.
+  # 4) For the cloud cover over time graph, add y axis label "Flight box ID" and update x axis to actual dates (using 2023 calendar is fine)
+  # 5) Campaign simulations: add more details about the sampling algorithm - maybe as bullet points, e.g. a) rank boxes by mean cloudiness, b) on day 1, select the typically cloudiest box that's clear that day, c) repeat.  This was done as a moving window for each day within the 3-month candidate campaign period october-december.  This plot shows the range of days required to capture all boxes across 2000-2021.  
+  # 
+  # for 1) above, by 'header' I just mean a section with short paragraph.
 
+  # 6) adjust box number: if they are essentially random, let's number them northwest to southeast or similar e.g. 11,10,15,14,20,18,2
 
-  # do we have afromontane forests in focal polygons?
 
 library(sf)
 library(terra)
