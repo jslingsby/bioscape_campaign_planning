@@ -10,7 +10,7 @@ output:
 
 In this file, the goal is to quantify the historical cloud cover in the planned flight boxes and to assess the implications for BioSCape operations.
 
-To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear".
+To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear". Here, we consider any raster cell categorized as "cloudy" to be cloud covered and other categories to be cloud-free (Figure 0).
   
 
 
@@ -79,7 +79,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
 #| message: false
 #| warning: false
 #| fig.width: 10
-#| fig.height: 10
+#| fig.height: 20
 #| include: true
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -160,6 +160,7 @@ ggarrange(c1,c2,c3,
 
 
 ```
+
 ### Interactive map
 
 The map below is interactive and allows zooming, moving, and toggling layers on/off.
