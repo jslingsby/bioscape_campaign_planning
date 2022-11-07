@@ -386,6 +386,19 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 
 # Campaign Simulations
 
+In order to estimate how successful our campaign might be, we conducted a simulation using the MODIS aqua and terra cloud data.
+
+1) Calculate mean cloud cover for each flight box for each day in the temporal window of interest (October-December, 2000 to present).
+
+2) Rank flight boxes in descending order of cloud cover.
+
+3) For each day in time time series:
+  a) If there are at least 60 days in which to sampling, continue. Else, skip.
+  b) Sample the highest ranking (i.e. hardest to sample) site that is below 10% cloud cover (if any) and hasn't been sampled.
+  c) Repeat b until all sites have been sampled or no more time remains
+
+
+
 ```{r campaing time estimate}
 #| echo: true
 #| message: false

@@ -53,7 +53,7 @@
 
     sens_filtered <-
       filter_dates(collection = sens,
-                   datestart = "2000-01-01",  #works back to "2020-09-30"
+                   datestart = "2000-01-01",
                    datestop = paste(format(Sys.time(), "%Y-%m-%d"),sep = ""),
                    daystart = 273,
                    daystop = 366)
@@ -268,4 +268,20 @@
     
     nasa_proj <- "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
     
+###############################################################################
+    
+  # Calculate mean cloud cover over time
+      # raster of mean total cloud cover (over 20 years during the oct-december  window)  
+    
+    Map$addLayer(clouds_sens$mean())
+    
+    # should be an average of cloud_sens
+    ee_as_raster(image = clouds_sens$mean(),
+                 region = domain_plus_boxes_ee,
+                 dsn =  "data/output/mean_cloud_cover.tif",
+                 scale = 1000)
+    
+    library(terra)
+    test <- terra::rast("data/output/mean_cloud_cover.tif")
+    plot(test)    
     
