@@ -30,10 +30,12 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
   library(rgee)
   library(targets)
   library(sf)
+  library(terra)
   library(tidyverse)
   library(lubridate)
   library(leaflet)
   library(ggplot2)
+  library(ggpubr)
   library(leafem)
   library(plotly)
 
@@ -68,6 +70,175 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
              day_of_year = yday(date)) -> cloud_table
   
     
+
+```
+
+
+```{r example data}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
+#| include: true
+#| code-fold: true
+#| code-summary: "Show the code"
+#| fig.cap: "Figure 0. Binary MODIS cloud data. Clouds are in white, non-clouds in blue."
+
+
+#Load in the correct projection (for some reason this is handled incorrectly otherwise)
+  nasa_proj <- "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
+
+#Load the example layers
+    
+  list.files(path = "data/flight_planning/",
+             pattern = "example_cloud_cover",
+             full.names = TRUE) %>%
+    rast() -> cloud_examples
+  
+# Generate the bounding box used
+    domain_plus_boxes <-
+    st_union(domain_sf,boxes_sf) %>%
+      st_bbox() %>%
+      st_as_sfc()
+
+
+  crs(cloud_examples) <- nasa_proj
+  
+  cloud_examples %>%
+    project(y = terra::crs(domain_sf,proj=TRUE)) %>%
+    crop(y = vect(domain_plus_boxes)) -> cloud_examples
+
+c1 <-  
+cloud_examples[[1]] %>%
+  as.data.frame(xy = TRUE) %>%
+  mutate(clouds = as.logical(state_1km))%>%
+ggplot() +
+  geom_tile(aes(x = x,
+                y = y,
+                fill = clouds))+
+  scale_fill_manual(values = c("light blue","white"))+
+  geom_sf(data = domain_sf,fill=NA)+
+  xlab(NULL)+
+  ylab(NULL)+
+  scale_x_continuous(expand = (c(0,0)))+
+  scale_y_continuous(expand = c(0,0))
+
+c2 <-  
+cloud_examples[[2]] %>%
+  as.data.frame(xy = TRUE) %>%
+  mutate(clouds = as.logical(state_1km))%>%
+ggplot() +
+  geom_tile(aes(x = x,
+                y = y,
+                fill = clouds))+
+  scale_fill_manual(values = c("light blue","white"))+
+  geom_sf(data = domain_sf,fill=NA)+
+  xlab(NULL)+
+  ylab(NULL)+
+  scale_x_continuous(expand = (c(0,0)))+
+  scale_y_continuous(expand = c(0,0))
+
+c3 <-  
+cloud_examples[[3]] %>%
+  as.data.frame(xy = TRUE) %>%
+  mutate(clouds = as.logical(state_1km))%>%
+ggplot() +
+  geom_tile(aes(x = x,
+                y = y,
+                fill = clouds))+
+  scale_fill_manual(values = c("light blue","white"))+
+  geom_sf(data = domain_sf,fill=NA)+
+  xlab(NULL)+
+  ylab(NULL)+
+  scale_x_continuous(expand = (c(0,0)))+
+  scale_y_continuous(expand = c(0,0))
+
+ggarrange(c1,c2,c3,
+          common.legend = TRUE,
+          ncol = 1)
+
+
+```
+### Interactive map
+
+The map below is interactive and allows zooming, moving, and toggling layers on/off.
+
+```{r leaflet plot of clusters}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig-cap: "Figure 5. Interactive Map"
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+#| code-fold: true
+#Pull in other bioscape layers
+
+    cloud_table %>%
+      na.omit()%>%
+      filter(month != 9)%>%
+      mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
+      group_by(id)%>%
+      summarize(prop_clear = sum(binary_clear)/n(),
+                clear_days = sum(binary_clear),
+                total_days = n())%>%
+      mutate(prop_clear = round(prop_clear,2))%>%
+      inner_join(x = boxes_sf)%>%
+    st_transform(crs = st_crs(4326)) -> flights
+
+team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
+    st_transform(crs = st_crs(4326))
+
+domain_sf %>%
+    st_transform(crs = st_crs(4326)) -> domain_wgs84
+  
+
+#Make a palette
+pal <- colorNumeric(palette = colorRamp(c("white", "blue"), interpolate = "spline"),
+                    domain = unique(flights$prop_clear))
+
+
+#Make labels
+labels <- sprintf(as.character(flights$prop_clear)) %>%
+  lapply(htmltools::HTML)
+
+leaflet(data = flights) %>%
+  addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+  addMapPane("flights", zIndex = 420) %>%
+  addMapPane("requests", zIndex = 410)%>% 
+     addPolygons(stroke = TRUE,
+              group = "Flights",
+              color = ~pal(prop_clear),
+              opacity = 1,
+              label = labels,
+              options = pathOptions(pane = "flights"))%>%
+  addPolygons(data = domain_wgs84,
+              stroke = TRUE,
+              color = "grey",
+              fill = FALSE,
+              weight = 3) %>%
+      addPolygons(data = team_requests%>%
+                st_zm(drop = T, what = "ZM"),
+                  stroke = TRUE,
+                  color = "brown",
+                  group = "Requests",
+              options = pathOptions(pane = "requests"))%>%  
+    addMouseCoordinates() %>%
+    #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
+  leaflet::addLegend(position = "bottomright",
+            pal = pal,
+            values = unique(flights$prop_clear),
+            opacity = 1,
+            title = "Cluster") %>%
+    addLayersControl(
+    baseGroups = c("World Imagery","NatGeo"),
+    overlayGroups = c("Flights","Requests"),
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topright")
+
+
 
 ```
 
@@ -211,88 +382,6 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 
 ```
 
-
-### Interactive map
-
-The map below is interactive and allows zooming, moving, and toggling layers on/off.
-
-```{r leaflet plot of clusters}
-#| echo: true
-#| message: false
-#| warning: false
-#| fig-cap: "Figure 5. Interactive Map"
-#| fig.width: 10
-#| fig.height: 10
-#| strip.white: TRUE
-#| code-fold: true
-#Pull in other bioscape layers
-
-    cloud_table %>%
-      na.omit()%>%
-      filter(month != 9)%>%
-      mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
-      group_by(id)%>%
-      summarize(prop_clear = sum(binary_clear)/n(),
-                clear_days = sum(binary_clear),
-                total_days = n())%>%
-      mutate(prop_clear = round(prop_clear,2))%>%
-      inner_join(x = boxes_sf)%>%
-    st_transform(crs = st_crs(4326)) -> flights
-
-team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
-    st_transform(crs = st_crs(4326))
-
-domain_sf %>%
-    st_transform(crs = st_crs(4326)) -> domain_wgs84
-  
-
-#Make a palette
-pal <- colorNumeric(palette = colorRamp(c("white", "blue"), interpolate = "spline"),
-                    domain = unique(flights$prop_clear))
-
-
-#Make labels
-labels <- sprintf(as.character(flights$prop_clear)) %>%
-  lapply(htmltools::HTML)
-
-leaflet(data = flights) %>%
-  addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
-  addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
-  addMapPane("flights", zIndex = 420) %>%
-  addMapPane("requests", zIndex = 410)%>% 
-     addPolygons(stroke = TRUE,
-              group = "Flights",
-              color = ~pal(prop_clear),
-              opacity = 1,
-              label = labels,
-              options = pathOptions(pane = "flights"))%>%
-  addPolygons(data = domain_wgs84,
-              stroke = TRUE,
-              color = "grey",
-              fill = FALSE,
-              weight = 3) %>%
-      addPolygons(data = team_requests%>%
-                st_zm(drop = T, what = "ZM"),
-                  stroke = TRUE,
-                  color = "brown",
-                  group = "Requests",
-              options = pathOptions(pane = "requests"))%>%  
-    addMouseCoordinates() %>%
-    #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
-  leaflet::addLegend(position = "bottomright",
-            pal = pal,
-            values = unique(flights$prop_clear),
-            opacity = 1,
-            title = "Cluster") %>%
-    addLayersControl(
-    baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Flights","Requests"),
-    options = layersControlOptions(collapsed = FALSE),
-    position = "topright")
-
-
-
-```
 
 # Campaign Simulations
 

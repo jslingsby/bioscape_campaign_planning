@@ -6,9 +6,9 @@
   library(lubridate)
 
 # install rgee python dependencies
-  rgee::ee_install()
-  rgee::ee_install_upgrade()
-  rgee::ee_check()
+  # rgee::ee_install()
+  # rgee::ee_install_upgrade()
+  # rgee::ee_check()
 
 # Initialize rgee
   rgee::ee_Initialize(drive = TRUE)
@@ -242,10 +242,30 @@
       geom_sf_text(aes(label = round(prop_clear,digits = 2)))
     
   
-  
-  
-  
-  
-  
-  
-      
+################################################################################
+    
+  # Pull example data for plotting. Just need any 3 layers from cloud_sens
+    
+    domain_plus_boxes_ee <-
+    st_union(domain_sf,boxes_sf) %>%
+      st_bbox() %>%
+      st_as_sfc() %>%
+      sf_as_ee()
+    
+    ee_as_raster(image = clouds_sens$filter(ee$Filter$eq("date_char","2021-10-01"))$first(),
+                 region = domain_plus_boxes_ee,
+                 dsn = "data/flight_planning/example_cloud_cover_2021-10-01.tif")
+    
+    ee_as_raster(image = clouds_sens$filter(ee$Filter$eq("date_char","2021-11-01"))$first(),
+                 region = domain_plus_boxes_ee,
+                 dsn = "data/flight_planning/example_cloud_cover_2021-11-01.tif")
+    
+    ee_as_raster(image = clouds_sens$filter(ee$Filter$eq("date_char","2021-12-01"))$first(),
+                 region = domain_plus_boxes_ee,
+                 dsn = "data/flight_planning/example_cloud_cover_2021-12-01.tif")
+    
+    #Note that the correct projection for these needs to be manaully specified as
+    
+    nasa_proj <- "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
+    
+    
