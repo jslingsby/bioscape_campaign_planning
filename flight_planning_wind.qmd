@@ -9,7 +9,7 @@ output:
   
 # Wind Data
 
-  Wind speed data were taken from the Famine Early Warning Systems Network (FEWS NET) Land Data Assimilation System (https://developers.google.com/earth-engine/datasets/catalog/NASA_FLDAS_NOAH01_C_GL_M_V001#bands ).
+  Wind speed data were taken from the Famine Early Warning Systems Network (FEWS NET) Land Data Assimilation System (https://developers.google.com/earth-engine/datasets/catalog/NASA_FLDAS_NOAH01_C_GL_M_V001#bands ). These are monthly data with a resolution of ~ 11 km.
 
   
 ```{r setup}
@@ -92,18 +92,6 @@ To visualize spatial patterns in wind speed, we calculated the average wind spee
 
 #Pull in other bioscape layers
 
-    # wind_table %>%
-    #   na.omit()%>%
-    #   filter(month != 9)%>%
-    #   mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
-    #   group_by(id)%>%
-    #   summarize(prop_clear = sum(binary_clear)/n(),
-    #             clear_days = sum(binary_clear),
-    #             total_days = n())%>%
-    #   mutate(prop_clear = round(prop_clear,2))%>%
-    #   inner_join(x = boxes_sf)%>%
-    # st_transform(crs = st_crs(4326)) -> flights
-
   team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
       st_transform(crs = st_crs(4326))
 
@@ -117,7 +105,6 @@ To visualize spatial patterns in wind speed, we calculated the average wind spee
   pal <- colorNumeric(palette = colorRamp(c("white", "magenta"), interpolate = "spline"),
                       domain = unique(values(mean_wind_speed)),na.color = NA)
   
-#Make labels
 
 boxes_sf %>%
   st_transform(crs = st_crs(4326))%>%
@@ -125,7 +112,7 @@ leaflet() %>%
   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
   addMapPane("flights", zIndex = 420) %>%
-  #addMapPane("requests", zIndex = 410) %>% 
+  addMapPane("requests", zIndex = 410) %>% 
   addRasterImage(x = mean_wind_speed,
                  group = "Clouds",
                  colors = pal,
@@ -141,19 +128,19 @@ leaflet() %>%
                                           textsize = 3),
               options = pathOptions(pane = "flights"),
               fill = FALSE)%>%
-      # addPolygons(data = team_requests %>%
-      #           st_zm(drop = T, what = "ZM"),
-      #             stroke = TRUE,
-      #             color = "black",
-      #             group = "Requests",
-      #         options = pathOptions(pane = "requests"),
-      #         fill = FALSE,
-      #         weight = 1)%>%  
+      addPolygons(data = team_requests %>%
+                st_zm(drop = T, what = "ZM"),
+                  stroke = TRUE,
+                  color = "black",
+                  group = "Requests",
+              options = pathOptions(pane = "requests"),
+              fill = FALSE,
+              weight = 1)%>%
     addMouseCoordinates() %>%
     #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
   leaflet::addLegend(position = "bottomright",
             pal = pal,
-            values = unique(values(mean_wind_speed)),
+            values = min(na.omit(values(mean_wind_speed))):max(na.omit(values(mean_wind_speed))),
             opacity = 1,
             title = "Mean\nWind\nSpeed\n(m/s)") %>%
     addLayersControl(
