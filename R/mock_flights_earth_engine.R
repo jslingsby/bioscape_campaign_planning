@@ -286,10 +286,79 @@
     plot(test)    
     
 #################################################################################
+#################################################################################    
     
-  # Wind data  
-    #band: Wind_f_tavg
+# Wind data  
+  
+  # Calculate stats for flight boxes
+            
+    wind <- ee$ImageCollection("NASA/FLDAS/NOAH01/C/GL/M/V001")
+      #band: Wind_f_tavg
+      
+      
+      
+      wind_filtered <-
+        filter_dates(collection = wind,
+                     datestart = "2000-01-01",
+                     datestop = paste(format(Sys.time(), "%Y-%m-%d"),sep = ""),
+                     daystart = 273,
+                     daystop = 366)
+      
     
-    #ee.ImageCollection("NASA/FLDAS/NOAH01/C/GL/M/V001") open_in_new
+      get_polygon_stats_cloud <- function(img){
+        
+        date <- img$date()$format('yyyy-MM-dd')
+        
+        img$reduceRegions(
+          collection = ee_boxes,
+          reducer = ee$Reducer$mean(),
+          scale = 11132 #native resolution is ~11 km, so no need to go finer than this
+        )$map(function(x){ x$set("date",date) }) #sets the date for later use
+        
+      }
+      
+      wind_stats <- wind_filtered$select("Wind_f_tavg")$map(get_polygon_stats_cloud)
+      
+      flat_wind_stats <- wind_stats$flatten() #flatter into a table
+      
+      # Download table to drive
+      
+      
+      flat_wind_stats$getInfo()
+      
+      flat_dl_wind<-
+        ee_table_to_drive(collection = flat_wind_stats,
+                          description = "wind_stats",
+                          folder = "EMMA",
+                          timePrefix = FALSE,
+                          fileFormat = "CSV",
+                          selectors = c("id","date","mean","target"))
+      
+      
+      flat_dl_wind$start()#starts the processing
+      ee_monitoring(flat_dl_wind,max_attempts = 100000) #keeps track of progress
+
+#Download wind stats
+      
+    googledrive::drive_download(file = "EMMA/wind_stats.csv",
+                                path = "data/wind_stats.csv",
+                                overwrite = TRUE) #note: if dling more than one need to add a prefix or something
+    
+    wind_table <- read.csv("data/wind_stats.csv")
+    
+#Mean wind speed
+    
+    Map$addLayer(wind_filtered$select("Wind_f_tavg")$mean())
+    
+    # should be an average of cloud_sens
+    ee_as_raster(image = wind_filtered$select("Wind_f_tavg")$mean(),
+                 region = domain_plus_boxes_ee,
+                 dsn =  "data/output/mean_wind.tif",
+                 scale = 11132)
+    
+    library(terra)
+    test <- terra::rast("data/output/mean_wind.tif")
+    plot(test)    
+    
     
     

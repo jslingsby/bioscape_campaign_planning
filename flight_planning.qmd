@@ -7,6 +7,7 @@ output:
     code_folding: hide
 ---
 
+# Clouds
 
 In this file, the goal is to quantify the historical cloud cover in the planned flight boxes and to assess the implications for BioSCape operations.
 
