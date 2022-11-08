@@ -21,8 +21,12 @@ docker exec -itu rstudio hungry_engelbart test
         # and a map of ~3 days binary cloud cover to make it clear what the 'raw' data are.
         # These could be layers in the interactive map (see next point)
 
-  # 2) move up the interactive map with google basemap showing boxes and polygons and a raster of mean total cloud cover (over 20 years during the oct-december  window). 
-      # This will show the overall cloud frequency patterns.  Add the box numbers as labels.
+  # 2) move up the interactive map with google basemap showing
+        # boxes and
+        # polygons and a 
+        # raster of mean total cloud cover (over 20 years during the oct-december  window). 
+      # This will show the overall cloud frequency patterns.
+      # Add the box numbers as labels.
 
   # 3) Drop the Flight boxes graph because it's now redundant with above.
 

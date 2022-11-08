@@ -1,7 +1,7 @@
 ---
 title: "Flight Planning"
 author: "Brian Maitner"
-date: "11/3/2022"
+date: "11/8/2022"
 output:
   html_document:
     code_folding: hide
@@ -10,7 +10,7 @@ output:
 
 In this file, the goal is to quantify the historical cloud cover in the planned flight boxes and to assess the implications for BioSCape operations.
 
-To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear". Here, we consider any raster cell categorized as "cloudy" to be cloud covered and other categories to be cloud-free (Figure 0).
+To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear". Here, we consider any raster cell categorized as "cloudy" to be cloud covered and other categories to be cloud-free (Figure 1).
   
 
 
@@ -31,6 +31,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
   library(targets)
   library(sf)
   library(terra)
+  library(raster)
   library(tidyverse)
   library(lubridate)
   library(leaflet)
@@ -51,7 +52,11 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
   # get flight boxes
     boxes <- st_read("data/flight_planning/20221026_flightboxes.gpkg",
                      quiet = TRUE)
+    
     boxes$id <- 1:20 # need a unique ID to make things easier
+    
+    boxes$ordered_id[c(11,10,15,14,20,18,2,13,17,16,4,1,6,8,3,19,5,9,7,12)] <- 1:20
+    
     boxes_sf <- boxes
     
   # Download table from drive (to see the code underlying this or to update the data, see the file "R/mock_flights_earth_engine.R")
@@ -83,7 +88,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
 #| include: true
 #| code-fold: true
 #| code-summary: "Show the code"
-#| fig.cap: "Figure 0. Binary MODIS cloud data. Clouds are in white, non-clouds in blue."
+#| fig.cap: "Figure 1. Binary MODIS cloud data. Clouds are in white, non-clouds in blue."
 
 
 #Load in the correct projection (for some reason this is handled incorrectly otherwise)
@@ -161,19 +166,20 @@ ggarrange(c1,c2,c3,
 
 ```
 
-### Interactive map
+### Mean Cloud Cover
 
-The map below is interactive and allows zooming, moving, and toggling layers on/off.
+To visualize spatial patterns on cloud cover, we calculated the average cloud cover for each raster cell (Figure 2).  Averages were taken across days (October-December) and years (2000-present).
 
 ```{r leaflet plot of clusters}
 #| echo: true
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 5. Interactive Map"
+#| fig-cap: "Figure 2. Mean cloud cover. Whiter raster cells are cloudier, bluer cells are clearer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
 #| code-fold: true
+
 #Pull in other bioscape layers
 
     cloud_table %>%
@@ -188,99 +194,119 @@ The map below is interactive and allows zooming, moving, and toggling layers on/
       inner_join(x = boxes_sf)%>%
     st_transform(crs = st_crs(4326)) -> flights
 
-team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
-    st_transform(crs = st_crs(4326))
+  team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
+      st_transform(crs = st_crs(4326))
 
-domain_sf %>%
-    st_transform(crs = st_crs(4326)) -> domain_wgs84
+  domain_sf %>%
+      st_transform(crs = st_crs(4326)) -> domain_wgs84
+  
+  mean_cloud_cover <- raster("data/output/mean_cloud_cover.tif")
   
 
 #Make a palette
-pal <- colorNumeric(palette = colorRamp(c("white", "blue"), interpolate = "spline"),
-                    domain = unique(flights$prop_clear))
+  pal <- colorNumeric(palette = colorRamp(c("white", "blue"), interpolate = "spline"),
+                      domain = unique(flights$prop_clear))
+  
+  pal2 <- colorNumeric(palette = "Blues",
+                      domain = 0:1, #unique(values(mean_cloud_cover)),
+                      reverse = TRUE)
+
 
 
 #Make labels
 labels <- sprintf(as.character(flights$prop_clear)) %>%
   lapply(htmltools::HTML)
+# 
+# leaflet(data = flights) %>%
+#   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
+#   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+#   addMapPane("flights", zIndex = 420) %>%
+#   addMapPane("requests", zIndex = 410)%>% 
+#      addPolygons(stroke = TRUE,
+#               group = "Flights",
+#               color = ~pal(prop_clear),
+#               opacity = 1,
+#               label = labels,
+#               options = pathOptions(pane = "flights"))%>%
+#   addPolygons(data = domain_wgs84,
+#               stroke = TRUE,
+#               color = "grey",
+#               fill = FALSE,
+#               weight = 3) %>%
+#       addPolygons(data = team_requests%>%
+#                 st_zm(drop = T, what = "ZM"),
+#                   stroke = TRUE,
+#                   color = "brown",
+#                   group = "Requests",
+#               options = pathOptions(pane = "requests"))%>%  
+#     addMouseCoordinates() %>%
+#     #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
+#   leaflet::addLegend(position = "bottomright",
+#             pal = pal,
+#             values = unique(flights$prop_clear),
+#             opacity = 1,
+#             title = "Cluster") %>%
+#     addLayersControl(
+#     baseGroups = c("World Imagery","NatGeo"),
+#     overlayGroups = c("Flights","Requests"),
+#     options = layersControlOptions(collapsed = FALSE),
+#     position = "topright")
 
-leaflet(data = flights) %>%
+
+flights %>%
+  left_join(y = boxes_sf %>%
+    st_drop_geometry())%>%
+leaflet() %>%
   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
   addMapPane("flights", zIndex = 420) %>%
-  addMapPane("requests", zIndex = 410)%>% 
+  addMapPane("requests", zIndex = 410) %>% 
+  addRasterImage(x = mean_cloud_cover,
+                 group = "Clouds",
+                 colors = pal2,
+                 opacity = 1) %>%
      addPolygons(stroke = TRUE,
               group = "Flights",
-              color = ~pal(prop_clear),
+              color = "black",
               opacity = 1,
-              label = labels,
-              options = pathOptions(pane = "flights"))%>%
-  addPolygons(data = domain_wgs84,
-              stroke = TRUE,
-              color = "grey",
-              fill = FALSE,
-              weight = 3) %>%
+              weight = 1,
+              label = ~as.character(ordered_id),
+              labelOptions = labelOptions(noHide = T,
+                                          textOnly = T,
+                                          textsize = 3),
+              options = pathOptions(pane = "flights"),
+              fill = FALSE)%>%
       addPolygons(data = team_requests%>%
                 st_zm(drop = T, what = "ZM"),
                   stroke = TRUE,
-                  color = "brown",
+                  color = "black",
                   group = "Requests",
-              options = pathOptions(pane = "requests"))%>%  
+              options = pathOptions(pane = "requests"),
+              fill = FALSE,
+              weight = 1)%>%  
     addMouseCoordinates() %>%
     #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
   leaflet::addLegend(position = "bottomright",
-            pal = pal,
-            values = unique(flights$prop_clear),
+            pal = pal2,
+            values = 0:1,
             opacity = 1,
-            title = "Cluster") %>%
+            title = "Mean\nCloud\nCover") %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Flights","Requests"),
+    overlayGroups = c("Flights","Requests","Clouds"),
     options = layersControlOptions(collapsed = FALSE),
-    position = "topright")
+    position = "topright") %>%
+  hideGroup("Requests")
 
 
 
 ```
 
-
-
-# Flight Boxes
-
-```{r flight boxes}
-#| echo: true
-#| message: false
-#| warning: false
-#| fig.cap: "Figure 1. The full domain (light grey) and planned flight boxes (green). Numbers shown are box IDs (used below)."
-#| fig.width: 10
-#| fig.height: 8
-#| strip.white: TRUE
-#| code-fold: true
-
-{ggplot()+
-  geom_sf(data = domain)+
-  geom_sf(data = boxes_sf,fill="light green")+
-      geom_sf_text(data = boxes_sf,
-                   aes(label = id),size=8)+
-  labs(x=NULL,y=NULL)} %>%
-  ggplotly()
-
-
-
-```
 
 
 # Cloud cover over time
 
-Focal study sites have been selected on the basis of the following criteria:
-  
-  * occur in the domain
-* occur within a national park
-* occur within 1 km of a road
-* have a mean NDVI over the last year of > 0.2
-* have a slope < 30 degrees
-* are within an estimated hiking time of 2 hours from the road
-
+To visualize temporal patterns in cloud cover, we calculated the mean cloud cover for each flight box (Figure 3).
 
 ```{r clouds over time}
 #| echo: true
@@ -288,23 +314,39 @@ Focal study sites have been selected on the basis of the following criteria:
 #| warning: false
 #| fig.width: 10
 #| fig.height: 10
-#| fig.cap: "Figure 2. Rows represent different flight boxes (see Fig 1.), columns different days."
+#| fig.cap: "Figure 3. Rows represent different flight boxes (see Fig 2.), columns different days."
 #| code-fold: true
   #ID by day of year
   
-    {cloud_table %>%
-      group_by(id,day_of_year)%>%
+    cloud_table %>%
+        mutate(date = as.Date(day_of_year,origin="2022-12-31"))%>%
+        mutate(start_of_month = floor_date(date,unit = "month"),
+               month_label = month(start_of_month,label = TRUE),
+               julian_label = yday(start_of_month),
+               day_of_month = mday(date),
+               md_label = paste(month_label,"-",day_of_month,sep = "")) %>%
+      group_by(id,day_of_year) %>%
+      left_join(y = boxes_sf %>%
+      st_drop_geometry()) -> temp
+      
+
+
+    { temp %>%
       ggplot() +
       geom_tile(mapping = aes(x = day_of_year,
-                              y = id,
+                              y = ordered_id,
                               fill = mean))+
       scale_fill_gradient(low = "sky blue",
                           high = "white")+
       facet_wrap(~year)+
+        scale_x_continuous(breaks = temp$julian_label,
+                           labels = temp$month_label)+
       labs(fill="Mean\nCloud\nCover",
-           y="ID",
-           x = "Day of Year")} %>%
+           y="Flight Box ID",
+           x = "Day of Year")+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))} %>%
   ggplotly()
+
 
 ```
 
@@ -312,6 +354,7 @@ Focal study sites have been selected on the basis of the following criteria:
 
 # Mean monthly cloud cover
 
+We also did spatiotemporal aggregations of mean cloud cover by month and flight box (Figure 4). In other words, we aggregated both spatially (all cells within the domain) and temporally (all days within the given month across all years).
 
 ```{r monthly cloud cover}
 #| echo: true
@@ -319,7 +362,7 @@ Focal study sites have been selected on the basis of the following criteria:
 #| warning: false
 #| fig.width: 10
 #| fig.height: 20
-#| fig.cap: "Figure 3. The full domain (light grey) and planned flight boxes, colored by mean monthly cloud cover.Numbers on flight boxes refer to mean cloud cover."
+#| fig.cap: "Figure 4. The full domain (light grey) and planned flight boxes, colored by mean monthly cloud cover.Numbers on flight boxes refer to mean cloud cover."
 #| code-fold: true
 
 # mean monthly cloud cover
@@ -355,7 +398,7 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| fig.width: 10
 #| fig.height: 8
 #| strip.white: TRUE
-#| fig.cap: "Figure 4. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
+#| fig.cap: "Figure 5. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
 #| code-fold: true
 
     #prop clear days
@@ -406,7 +449,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
 #| fig.width: 14
 #| fig.height: 10
 #| strip.white: TRUE
-#| fig.cap: "Figure 5. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
+#| fig.cap: "Figure 6. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
      
   #code underlying simulations available in the file "R/flight_window.R"
 
@@ -449,7 +492,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
         geom_text(label = "estimated total number of flight days",
                   y=37.3,
                   x=280)+
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))}%>%
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) } %>%
   ggplotly()
       
 
