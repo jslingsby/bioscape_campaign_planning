@@ -285,3 +285,11 @@
     test <- terra::rast("data/output/mean_cloud_cover.tif")
     plot(test)    
     
+#################################################################################
+    
+  # Wind data  
+    #band: Wind_f_tavg
+    
+    #ee.ImageCollection("NASA/FLDAS/NOAH01/C/GL/M/V001") open_in_new
+    
+    
