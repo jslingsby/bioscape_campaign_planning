@@ -415,7 +415,7 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
       geom_sf()+
       geom_sf(data = domain,inherit.aes = FALSE,fill=NA)+
       scale_fill_gradient(low = "white",high = "sky blue",limits=c(0,1))+
-      geom_sf_text(aes(label = round(prop_clear,digits = 2)),size=8)+
+      geom_sf_text(aes(label = round(prop_clear,digits = 2)))+
       labs(fill = "Prop.\nClear",
            x=NULL,
            y=NULL)} %>%
