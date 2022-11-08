@@ -6,3 +6,5 @@ Information on flight paths and cloud cover available <u><a href="https://biosca
 
 Information on flight paths and wind speed available <u><a href="https://bioscape-io.github.io/terrestrial_sampling/flight_planning_wind">here</a>.</u>
 
+
+

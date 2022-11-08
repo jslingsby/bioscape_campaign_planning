@@ -43,10 +43,26 @@ temp/
 
 #Data (at least for now)
 data/static/*
-data/manual_downloads/*
 data/static/*
 data/temp/*
 data/climate/*
+data/manual_downloads/drought
+data/manual_downloads/flight_planning
+data/manual_downloads/Mapping*
+data/manual_downloads/NFEPA
+data/manual_downloads/protected*
+data/manual_downloads/rivers*
+data/manual_downloads/Roads*
+data/manual_downloads/SA_NLC*
+data/manual_downloads/VEGMAP*
+
+
+
+
+
+
+
+
 
 #large output files
 data/output/stars_slope.tif
