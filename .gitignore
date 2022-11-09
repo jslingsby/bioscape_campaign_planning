@@ -43,8 +43,7 @@ temp/
 
 #Data (at least for now)
 data/static/*
-data/static/*
-data/temp/*
+data/temp/soil*
 data/climate/*
 data/manual_downloads/drought
 data/manual_downloads/flight_planning

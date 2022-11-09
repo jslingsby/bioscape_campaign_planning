@@ -389,6 +389,41 @@ We calculated spatiotemporal aggregations of mean cloud cover by month and fligh
 ```
 
 
+# Median monthly cloud cover
+
+We also did spatiotemporal aggregations of median cloud cover by month and flight box (Figure 5). First, we calculated the fraction of cloud cover within each flight box, and then we calculated the median cloud cover for each month (across all years).
+
+
+```{r median monthly cloud cover}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 20
+#| fig.cap: "Figure 5. The full domain (light grey) and planned flight boxes, colored by mean monthly cloud cover.Numbers on flight boxes refer to median cloud cover."
+#| code-fold: true
+
+# mean monthly cloud cover
+    {cloud_table %>%
+      group_by(id, month)%>%
+      filter(month != 9)%>%
+      summarize(median_cc = median(na.omit(mean)))%>%
+      inner_join(x = boxes_sf)%>%
+      ggplot(mapping = aes(fill = median_cc))+
+      geom_sf()+
+      geom_sf(data = domain_sf,
+              inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "sky blue",high = "white")+
+      facet_wrap(~month,ncol = 1)+
+      geom_sf_text(aes(label = round(median_cc,digits = 2)))+
+      labs(fill="Median\nCloud\nCover")+
+      xlab(NULL)+
+      ylab(NULL)} %>%
+  ggplotly()
+
+
+```
+
 
 ## Proportion of clear days for each flight box
 
@@ -504,38 +539,3 @@ In order to estimate how successful our campaign might be, we conducted a simula
 
 ```
 
-
-# Median monthly cloud cover
-
-We also did spatiotemporal aggregations of median cloud cover by month and flight box (Figure 5). First, we calculated the fraction of cloud cover within each flight box, and then we calculated the median cloud cover for each month (across all years).
-
-
-```{r median monthly cloud cover}
-#| echo: true
-#| message: false
-#| warning: false
-#| fig.width: 10
-#| fig.height: 20
-#| fig.cap: "Figure 5. The full domain (light grey) and planned flight boxes, colored by mean monthly cloud cover.Numbers on flight boxes refer to median cloud cover."
-#| code-fold: true
-
-# mean monthly cloud cover
-    {cloud_table %>%
-      group_by(id, month)%>%
-      filter(month != 9)%>%
-      summarize(median_cc = median(na.omit(mean)))%>%
-      inner_join(x = boxes_sf)%>%
-      ggplot(mapping = aes(fill = median_cc))+
-      geom_sf()+
-      geom_sf(data = domain_sf,
-              inherit.aes = FALSE,fill=NA)+
-      scale_fill_gradient(low = "sky blue",high = "white")+
-      facet_wrap(~month,ncol = 1)+
-      geom_sf_text(aes(label = round(median_cc,digits = 2)))+
-      labs(fill="Median\nCloud\nCover")+
-      xlab(NULL)+
-      ylab(NULL)} %>%
-  ggplotly()
-
-
-```
