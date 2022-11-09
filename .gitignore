@@ -39,7 +39,7 @@ vignettes/*.pdf
 .Renviron
 
 #temporary files
-temp/
+temp/*
 
 #Data (at least for now)
 data/static/*
@@ -56,13 +56,8 @@ data/manual_downloads/SA_NLC*
 data/manual_downloads/VEGMAP*
 
 
-
-
-
-
-
-
-
 #large output files
 data/output/stars_slope.tif
 data/output/insol_slope.tif
+
+
