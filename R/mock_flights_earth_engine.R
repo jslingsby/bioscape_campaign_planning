@@ -281,10 +281,10 @@
                  dsn =  "data/output/mean_cloud_cover.tif",
                  scale = 1000)
     
-    library(terra)
-    test <- terra::rast("data/output/mean_cloud_cover.tif")
-    plot(test)    
+    # Calculate mean cloud cover over time
+    # raster of mean total cloud cover (over 20 years during the oct-december  window)  
     
+
 #################################################################################
 #################################################################################    
     
