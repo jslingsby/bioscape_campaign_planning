@@ -7,12 +7,10 @@ output:
     code_folding: hide
 ---
   
-# Wind Data
+# Wind Data (ERA5)
+Wind speed data were taken from ERA5. Data are hourly and have a 0.25 degree resolution.
 
-  Wind speed data were taken from the Famine Early Warning Systems Network (FEWS NET) Land Data Assimilation System (https://developers.google.com/earth-engine/datasets/catalog/NASA_FLDAS_NOAH01_C_GL_M_V001#bands ). These are monthly data with a resolution of ~ 11 km.
-
-  
-```{r setup}
+```{r setup era5}  
 #| echo: true
 #| message: false
 #| warning: false
@@ -21,8 +19,6 @@ output:
 #| include: true
 #| code-fold: true
 #| code-summary: "Show the code"
-
-# Load required packages
 
 # Load packages
   library(rgee)
@@ -37,8 +33,6 @@ output:
   library(ggpubr)
   library(leafem)
   library(plotly)
-
-
 
 #Load required data
 
@@ -56,6 +50,194 @@ output:
     boxes$ordered_id[c(11,10,15,14,20,18,2,13,17,16,4,1,6,8,3,19,5,9,7,12)] <- 1:20
     
     boxes_sf <- boxes
+
+  
+  # Pull in other bioscape layers
+  
+    team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
+        st_transform(crs = st_crs(4326))
+  
+    domain_sf %>%
+        st_transform(crs = st_crs(4326)) -> domain_wgs84
+    
+    #Load era5 data
+    
+    era5_wind_table <- readRDS("data/output/era_wind_weighted.RDS")
+
+```
+
+### Mean Wind Speed
+
+To visualize spatial patterns in wind speed, we calculated the average wind speed (m/s) for each raster cell (Figure 2).  Averages were taken across days (October-December) and years (2000-present).
+
+```{r leaflet plot of clusters era5}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig-cap: "Figure 2. Mean wind speed (m/s). Pinker raster cells are windier, whiter cells are calmer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+#| code-fold: true
+
+  
+  mean_era5_wind_speed <- raster("data/output/mean_era5_speed.tif")
+  
+
+#Make a palette
+  pal_era5 <- colorNumeric(palette = colorRamp(c("white", "magenta"), interpolate = "spline"),
+                      domain = unique(values(mean_era5_wind_speed)),na.color = NA)
+  
+
+boxes_sf %>%
+  st_transform(crs = st_crs(4326))%>%
+leaflet() %>%
+  addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+  addMapPane("flights", zIndex = 420) %>%
+  addMapPane("requests", zIndex = 410) %>% 
+  addRasterImage(x = mean_era5_wind_speed,
+                 group = "Wind",
+                 colors = pal_era5,
+                 opacity = 1) %>%
+     addPolygons(stroke = TRUE,
+              group = "Flights",
+              color = "black",
+              opacity = 1,
+              weight = 1,
+              label = ~as.character(ordered_id),
+              labelOptions = labelOptions(noHide = T,
+                                          textOnly = T,
+                                          textsize = 3),
+              options = pathOptions(pane = "flights"),
+              fill = FALSE)%>%
+      addPolygons(data = team_requests %>%
+                st_zm(drop = T, what = "ZM"),
+                  stroke = TRUE,
+                  color = "black",
+                  group = "Requests",
+              options = pathOptions(pane = "requests"),
+              fill = FALSE,
+              weight = 1)%>%
+    addMouseCoordinates() %>%
+    #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
+  leaflet::addLegend(position = "bottomright",
+            pal = pal_era5,
+            values = min(na.omit(values(mean_era5_wind_speed))):max(na.omit(values(mean_era5_wind_speed))),
+            opacity = 1,
+            title = "Mean\nWind\nSpeed\n(m/s)") %>%
+    addLayersControl(
+    baseGroups = c("World Imagery","NatGeo"),
+    overlayGroups = c("Flights","Requests","Wind"),
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topright") %>%
+  hideGroup("Requests")
+
+
+
+```
+
+
+# Wind speed over time
+
+To visualize temporal patterns in wind speed, we calculated the mean wind speed for each flight box (Figure 3).
+
+```{r wind over time era5}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
+#| fig.cap: "Figure 3. Rows represent different flight boxes (see Fig 2.), columns different days."
+#| code-fold: true
+#|
+  #ID by day of year
+  
+    era5_wind_table %>%
+        mutate(date = as.Date(doy,origin="2022-12-31")) %>%
+        mutate(start_of_month = floor_date(date,unit = "month"),
+               month_label = month(start_of_month,label = TRUE),
+               julian_label = yday(start_of_month),
+               day_of_month = mday(date),
+               md_label = paste(month_label,"-",day_of_month,sep = "")) %>%
+      group_by(ID,doy,month_label,julian_label,year) %>%
+      summarise(mean = mean(wgt_mean_wind_speed))%>%
+      left_join(y = boxes_sf %>%
+      st_drop_geometry(),by = c("ID"="id")) -> temp
+      
+
+
+    { temp %>%
+      ggplot() +
+      geom_tile(mapping = aes(x = doy,
+                              y = ordered_id,
+                              fill = mean))+
+      scale_fill_gradient(low = "white",
+                          high = "magenta")+
+      facet_wrap(~year)+
+        scale_x_continuous(breaks = temp$julian_label,
+                           labels = temp$month_label)+
+      labs(fill="Mean\nWind\nSpeed\n(m/s)",
+           y="Flight Box ID",
+           x = "Day of Year")+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))} %>%
+  ggplotly()
+
+
+```
+# Mean Monthly Wind Speed
+
+We also did spatiotemporal aggregations of mean wind speed by month and flight box (Figure 4). In other words, we aggregated both spatially (all cells within the domain) and temporally (all days within the given month across all years).
+
+```{r monthly wind speed era5}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 20
+#| fig.cap: "Figure 4. The full domain (light grey) and planned flight boxes, colored by mean monthly wind speed. Numbers on flight boxes refer to mean wind speed."
+#| code-fold: true
+
+# mean monthly wind speed
+    {era5_wind_table %>%
+      group_by(ID, month)%>%
+      filter(month != 9)%>%
+      summarize(mean_cc = mean(na.omit(wgt_mean_wind_speed)))%>%
+      inner_join(x = boxes_sf,
+                 by = c("id"="ID"))%>%
+      ggplot(mapping = aes(fill = mean_cc))+
+      geom_sf()+
+      geom_sf(data = domain_sf,
+              inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "white",high = "magenta")+
+      facet_wrap(~month,ncol = 1)+
+      geom_sf_text(aes(label = round(mean_cc,digits = 2)))+
+      labs(fill="Mean\nWind\nSpeed\n(m/s)")+
+      xlab(NULL)+
+      ylab(NULL)} %>%
+  ggplotly()
+
+
+```
+
+############################################################################################################
+
+# Wind Data (FEWS Net)
+
+Wind speed data were taken from the Famine Early Warning Systems Network (FEWS NET) Land Data Assimilation System (https://developers.google.com/earth-engine/datasets/catalog/NASA_FLDAS_NOAH01_C_GL_M_V001#bands ). These are monthly data with a resolution of ~ 11 km.
+
+  
+```{r setup}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
+#| include: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
+
     
   # Download table from drive (to see the code underlying this or to update the data, see the file "R/mock_flights_earth_engine.R")
     googledrive::drive_download(file = "EMMA/wind_stats.csv",
@@ -84,19 +266,12 @@ To visualize spatial patterns in wind speed, we calculated the average wind spee
 #| echo: true
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 2. Mean wind speed (m/s). Whiter raster cells are cloudier, bluer cells are clearer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
+#| fig-cap: "Figure 2. Mean wind speed (m/s). Pinker raster cells are windier, whiter cells are calmer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
 #| code-fold: true
 
-#Pull in other bioscape layers
-
-  team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
-      st_transform(crs = st_crs(4326))
-
-  domain_sf %>%
-      st_transform(crs = st_crs(4326)) -> domain_wgs84
   
   mean_wind_speed <- raster("data/output/mean_wind.tif")
   
@@ -114,7 +289,7 @@ leaflet() %>%
   addMapPane("flights", zIndex = 420) %>%
   addMapPane("requests", zIndex = 410) %>% 
   addRasterImage(x = mean_wind_speed,
-                 group = "Clouds",
+                 group = "Wind",
                  colors = pal,
                  opacity = 1) %>%
      addPolygons(stroke = TRUE,
@@ -145,7 +320,7 @@ leaflet() %>%
             title = "Mean\nWind\nSpeed\n(m/s)") %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Flights","Requests","Clouds"),
+    overlayGroups = c("Flights","Requests","Wind"),
     options = layersControlOptions(collapsed = FALSE),
     position = "topright") %>%
   hideGroup("Requests")
@@ -214,10 +389,10 @@ We also did spatiotemporal aggregations of mean wind speed by month and flight b
 #| warning: false
 #| fig.width: 10
 #| fig.height: 20
-#| fig.cap: "Figure 4. The full domain (light grey) and planned flight boxes, colored by mean monthly wind speed. Numbers on flight boxes refer to mean cloud cover."
+#| fig.cap: "Figure 4. The full domain (light grey) and planned flight boxes, colored by mean monthly wind speed. Numbers on flight boxes refer to mean wind speed."
 #| code-fold: true
 
-# mean monthly cloud cover
+# mean monthly wind speed
     {wind_table %>%
       group_by(id, month)%>%
       filter(month != 9)%>%

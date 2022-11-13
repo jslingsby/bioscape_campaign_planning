@@ -23,7 +23,8 @@ source("R/batch_extract.R")
 # grab just the total cloud cover
   era_terra <- terra::rast(x = "data/manual_downloads/flight_planning/adaptor.mars.internal-1666724031.1916814-7142-3-6ad9112b-c8b2-4bdd-a3d4-1a6b593bd447.nc",
                            subds="tcc")
-
+  
+               
 # get flight boxes
   boxes <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg") %>%
             st_transform(crs = crs(era_terra))
