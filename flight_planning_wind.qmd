@@ -138,7 +138,7 @@ leaflet() %>%
 ```
 
 
-# Wind speed over time
+### Wind speed over time
 
 To visualize temporal patterns in wind speed, we calculated the mean wind speed for each flight box (Figure 3).
 
@@ -185,7 +185,7 @@ To visualize temporal patterns in wind speed, we calculated the mean wind speed 
 
 
 ```
-# Mean Monthly Wind Speed
+### Mean Monthly Wind Speed
 
 We also did spatiotemporal aggregations of mean wind speed by month and flight box (Figure 4). In other words, we aggregated both spatially (all cells within the domain) and temporally (all days within the given month across all years).
 
@@ -218,6 +218,32 @@ We also did spatiotemporal aggregations of mean wind speed by month and flight b
   ggplotly()
 
 
+```
+
+### Diurnal patterns in wind speed
+
+```{r diurnal patterns}
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 20
+#| fig.cap: "Figure 5. Diurnal patterns in wind speed. Dots represent the 90th percentile wind speed in a flight box at a particular hour. Numbers above the plots refer to flight boxes. Lines shone are a loess fit."
+#| code-fold: true
+
+era5_wind_table %>%
+  inner_join(x = boxes_sf,
+                 by = c("id"="ID"))%>%
+  group_by(ordered_id, hour)%>%
+  ggplot()+
+  geom_point(mapping = aes(x=hour,y = wgt_90pct_wind_speed,color=target),alpha=0.5)+
+  geom_smooth(mapping = aes(x=hour,y=wgt_90pct_wind_speed),method = "loess")+
+  facet_wrap(~ordered_id)+
+  ylab("90th Percentile Wind Speed")+
+  geom_hline(yintercept = 5, lty = 2)+
+  scale_color_manual(values = c("Aquatic" = "blue",
+                                "Terrestrial"="brown",
+                                "Terrestrial (coincident aquatic)"="tan")) 
 ```
 
 ############################################################################################################
@@ -331,7 +357,7 @@ leaflet() %>%
 
 
 
-# Wind speed over time
+### Wind speed over time
 
 To visualize temporal patterns in wind speed, we calculated the mean wind speed for each flight box (Figure 3).
 
@@ -379,7 +405,7 @@ To visualize temporal patterns in wind speed, we calculated the mean wind speed 
 ```
 
 
-# Mean Monthly Wind Speed
+### Mean Monthly Wind Speed
 
 We also did spatiotemporal aggregations of mean wind speed by month and flight box (Figure 4). In other words, we aggregated both spatially (all cells within the domain) and temporally (all days within the given month across all years).
 

@@ -139,9 +139,22 @@ era_wind_weighted %>%
 era_wind_weighted %>%
   group_by(ID, hour)%>%
   ggplot()+
-  geom_point(mapping = aes(x=hour,y = wgt_mean_wind_speed),alpha=0.01)+
-  geom_smooth(mapping = aes(x=hour,y=wgt_mean_wind_speed),method = "loess")+
-  facet_wrap(~ID)
+  geom_point(mapping = aes(x=hour,y = wgt_median_wind_speed),alpha=0.01)+
+  geom_smooth(mapping = aes(x=hour,y=wgt_median_wind_speed),method = "loess")+
+  facet_wrap(~ID)+
+  ylab("Median Wind Speed")
+
+
+era_wind_weighted %>%
+  group_by(ID, hour)%>%
+  ggplot()+
+  geom_point(mapping = aes(x=hour,y = wgt_90pct_wind_speed),alpha=0.01)+
+  geom_smooth(mapping = aes(x=hour,y=wgt_90pct_wind_speed),method = "loess")+
+  facet_wrap(~ID)+
+  ylab("90th Percentile Wind Speed")
+
+era_wind_weighted$wgt_90pct_wind_speed
+
 
 boxes$ID <- 1:20
 
