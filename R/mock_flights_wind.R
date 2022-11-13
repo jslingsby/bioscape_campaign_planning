@@ -16,6 +16,7 @@ library(sf)
 library(tidyverse)
 library(lubridate)
 library(ggplot2)
+library(spatstat.core)
 source("R/batch_extract.R")
 
 # calculating wind speed from u and v components of wind
@@ -72,7 +73,12 @@ source("R/batch_extract.R")
   
   era_wind_boxes %>%
     group_by(ID, time) %>%
-    summarise(wgt_mean_wind_speed = weighted.mean(x = value, w = fraction)) %>%
+    summarise(wgt_mean_wind_speed = weighted.mean(x = value, w = fraction),
+              wgt_median_wind_speed = weighted.median(x = value,w = fraction),
+              wgt_90pct_wind_speed = weighted.quantile(x = value,
+                                                       w = fraction,
+                                                       probs = c(0.9),
+                                                       type = 1)) %>%
     mutate(year = year(time),
            month = month(time),
            day = day(time),
