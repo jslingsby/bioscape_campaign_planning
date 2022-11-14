@@ -16,6 +16,8 @@
 
 ########################################################################################
 
+library(tidyverse)
+library(lubridate)
 
 #Set up
 
@@ -78,6 +80,15 @@
         
         
         for(d in sampling_start:sampling_end){
+          
+          #Make sure there are no more than 20 options (sanity check)
+          
+            cloud_table %>%
+              filter(unix_date == d)%>%
+              nrow() -> daily_options
+            
+            if(daily_options > 20){stop("Check code")}
+          
           
           #Get a list of sites to be sampled
 
