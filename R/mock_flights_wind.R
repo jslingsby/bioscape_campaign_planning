@@ -39,6 +39,9 @@ source("R/batch_extract.R")
   writeRaster(x = mean(era_speed),
               filename = "data/output/mean_era5_speed.tif")
   
+  writeRaster(x = median(era_speed),
+              filename = "data/output/median_era5_speed.tif")
+  
 # get flight boxes
   boxes <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg") %>%
             st_transform(crs = crs(era_speed))

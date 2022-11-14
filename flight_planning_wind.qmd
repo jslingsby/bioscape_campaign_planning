@@ -66,7 +66,7 @@ Wind speed data were taken from ERA5. Data are hourly and have a 0.25 degree res
 
 ```
 
-### Mean Wind Speed
+### Median Wind Speed
 
 To visualize spatial patterns in wind speed, we calculated the average wind speed (m/s) for each raster cell (Figure 2).  Averages were taken across days (October-December) and years (2000-present).
 
@@ -74,19 +74,20 @@ To visualize spatial patterns in wind speed, we calculated the average wind spee
 #| echo: true
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 2. Mean wind speed (m/s). Pinker raster cells are windier, whiter cells are calmer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
+#| fig-cap: "Figure 2. Median wind speed (m/s). Pinker raster cells are windier, whiter cells are calmer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
 #| code-fold: true
 
   
-  mean_era5_wind_speed <- raster("data/output/mean_era5_speed.tif")
+  #mean_era5_wind_speed <- raster("data/output/mean_era5_speed.tif")
+  median_era5_wind_speed <- raster("data/output/median_era5_speed.tif")
   
 
 #Make a palette
   pal_era5 <- colorNumeric(palette = colorRamp(c("white", "magenta"), interpolate = "spline"),
-                      domain = unique(values(mean_era5_wind_speed)),na.color = NA)
+                      domain = unique(values(median_era5_wind_speed)),na.color = NA)
   
 
 boxes_sf %>%
@@ -96,7 +97,7 @@ leaflet() %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
   addMapPane("flights", zIndex = 420) %>%
   addMapPane("requests", zIndex = 410) %>% 
-  addRasterImage(x = mean_era5_wind_speed,
+  addRasterImage(x = median_era5_wind_speed,
                  group = "Wind",
                  colors = pal_era5,
                  opacity = 1) %>%
@@ -123,9 +124,9 @@ leaflet() %>%
     #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
   leaflet::addLegend(position = "bottomright",
             pal = pal_era5,
-            values = min(na.omit(values(mean_era5_wind_speed))):max(na.omit(values(mean_era5_wind_speed))),
+            values = min(na.omit(values(median_era5_wind_speed))):max(na.omit(values(median_era5_wind_speed))),
             opacity = 1,
-            title = "Mean\nWind\nSpeed\n(m/s)") %>%
+            title = "Median\nWind\nSpeed\n(m/s)") %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
     overlayGroups = c("Flights","Requests","Wind"),
