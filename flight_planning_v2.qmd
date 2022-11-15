@@ -266,12 +266,12 @@ leaflet() %>%
             pal = pal2,
             values = 0:1,
             opacity = 1,
-            title = "Mean\nCloud\nCover") %>%
+            title = "Cloud Cover") %>%
     leaflet::addLegend(position = "bottomleft",
             pal = pal_era5,
             values = min(na.omit(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed)))):max(na.omit(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed)))),
             opacity = 1,
-            title = "Median\nWind\nSpeed",) %>%
+            title = "Wind (m/s)",) %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
     overlayGroups = c("Flights","Requests","Clouds","ERA5 Wind", "FEWSNET Wind"),
@@ -311,7 +311,7 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
       
 
 
-    { temp %>%
+    temp %>%
       ggplot() +
       geom_tile(mapping = aes(x = day_of_year,
                               y = ordered_id,
@@ -324,8 +324,7 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
       labs(fill="Mean\nCloud\nCover",
            y="Flight Box ID",
            x = "Day of Year")+
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))} %>%
-  ggplotly()
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 
 ```
@@ -340,12 +339,13 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| message: false
 #| warning: false
 #| out.width: 100%
+#| out.height: 50%
 #| strip.white: TRUE
 #| fig.cap: "Figure 6. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
 #| code-fold: true
 
     #prop clear days
-    {cloud_table %>%
+    cloud_table %>%
       na.omit()%>%
       filter(month != 9)%>%
       mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
@@ -361,11 +361,7 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
       geom_sf_text(aes(label = round(prop_clear,digits = 2)))+
       labs(fill = "Prop.\nClear",
            x=NULL,
-           y=NULL)} %>%
-  ggplotly()
-
-
-
+           y=NULL)
 
 ```
 
