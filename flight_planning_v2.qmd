@@ -172,9 +172,9 @@ ggarrange(c1,c2,c3,
 
 ```
 
-### Mean Cloud Cover
+### Cloud Cover and Wind Speed
 
-To visualize spatial patterns on cloud cover, we calculated the average cloud cover for each raster cell (Figure 2).  Averages were taken across days (October-December) and years (2000-present).
+To visualize spatial patterns of cloud cover and wind speed, we calculated the averages for each raster cell (Figure 2).  For cloud cover, to took the mean value across days (October-December) and years (2000-present). For wind speed, we took median values. We also include median wind speed estimates from FEWSNET (https://developers.google.com/earth-engine/datasets/catalog/NASA_FLDAS_NOAH01_C_GL_M_V001), which are monthly estimates at ~11km resolution.
 
 ```{r leaflet plot of clusters}
 #| echo: true
@@ -207,15 +207,15 @@ To visualize spatial patterns on cloud cover, we calculated the average cloud co
                       domain = 0:1, #unique(values(mean_cloud_cover)),
                       reverse = TRUE)
 
-#Get wind data  
+#Get era wind data  
   median_era5_wind_speed <- raster("data/output/median_era5_speed.tif")
-  
+
+#Get fewsnet wind data  
+  median_fewsnet_wind_speed <- raster("data/output/median_wind_fewsnet.tif")
 
 #Make a palette
   pal_era5 <- colorNumeric(palette = colorRamp(c("white", "magenta"), interpolate = "spline"),
-                      domain = unique(values(median_era5_wind_speed)),na.color = NA)
-
-
+                      domain = unique(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed))),na.color = NA)
 
 #Make labels
 labels <- sprintf(as.character(flights$prop_clear)) %>%
@@ -234,7 +234,11 @@ leaflet() %>%
                  colors = pal2,
                  opacity = 1) %>%
       addRasterImage(x = median_era5_wind_speed,
-                 group = "Wind",
+                 group = "ERA5 Wind",
+                 colors = pal_era5,
+                 opacity = 1) %>%
+      addRasterImage(x = median_fewsnet_wind_speed,
+                 group = "FEWSNET Wind",
                  colors = pal_era5,
                  opacity = 1) %>%
      addPolygons(stroke = TRUE,
@@ -265,15 +269,15 @@ leaflet() %>%
             title = "Mean\nCloud\nCover") %>%
     leaflet::addLegend(position = "bottomleft",
             pal = pal_era5,
-            values = min(unique(values(median_era5_wind_speed))):max(unique(values(median_era5_wind_speed))),
+            values = min(na.omit(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed)))):max(na.omit(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed)))),
             opacity = 1,
             title = "Median\nWind\nSpeed",) %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Flights","Requests","Clouds","Wind"),
+    overlayGroups = c("Flights","Requests","Clouds","ERA5 Wind", "FEWSNET Wind"),
     options = layersControlOptions(collapsed = FALSE),
     position = "topright") %>%
-  hideGroup(c("Requests","Wind"))
+  hideGroup(c("Requests","ERA5 Wind", "FEWSNET Wind"))
 
 
 
