@@ -361,4 +361,9 @@
     plot(test)    
     
     
+    # should be an average of cloud_sens
+    ee_as_raster(image = wind_filtered$select("Wind_f_tavg")$median(),
+                 region = domain_plus_boxes_ee,
+                 dsn =  "data/output/median_wind_fewsnet.tif",
+                 scale = 11132)
     
