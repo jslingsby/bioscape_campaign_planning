@@ -7,11 +7,12 @@ output:
     code_folding: hide
 ---
 
-# Clouds
+# Environmental Data
 
-In this file, the goal is to quantify the historical cloud cover in the planned flight boxes and to assess the implications for BioSCape operations.
+In this file, the goal is to quantify the historical cloud cover and wind speeds in the planned flight boxes and to assess the implications for BioSCape operations.
 
-To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear". Here, we consider any raster cell categorized as "cloudy" to be cloud covered and other categories to be cloud-free (Figure 1).
+To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear". Here, we consider any raster cell categorized as "cloudy" to be cloud covered and other categories to be cloud-free (Figure 1). To assess potential wind speeds, we used wind speed data from ERA5. Wind data are hourly and have a 0.25 degree resolution.
+
   
 
 
@@ -67,7 +68,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
     
     cloud_table <- read.csv("data/test_cloud_stats.csv")
 
-  # Parse date
+  # modis clouds
 
     cloud_table %>%
       mutate(year = year(date),
@@ -75,18 +76,20 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
              day = day(date),
              day_of_year = yday(date)) -> cloud_table
   
+  #Load era5 wind data
     
+    era5_wind_table <- readRDS("data/output/era_wind_weighted.RDS")
+
 
 ```
 
 
 
-```{r example data}
+```{r example cloud data}
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 10
-#| fig.height: 20
+#| out.width: 100%
 #| include: true
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -94,6 +97,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
 
 
 #Load in the correct projection (for some reason this is handled incorrectly otherwise)
+
   nasa_proj <- "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
 
 #Load the example layers
