@@ -293,8 +293,7 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 10
-#| fig.height: 10
+#| out.width: 100%
 #| fig.cap: "Figure 3. Rows represent different flight boxes (see Fig 2.), columns different days."
 #| code-fold: true
   #ID by day of year
@@ -340,8 +339,7 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 10
-#| fig.height: 8
+#| out.width: 100%
 #| strip.white: TRUE
 #| fig.cap: "Figure 6. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
 #| code-fold: true
@@ -438,7 +436,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
         xlab("Campaign Starting Day")+
         geom_text(label = "estimated total number of flight days",
                   y=37.3,
-                  x=280)+
+                  x=282)+
         theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
       
 
@@ -496,7 +494,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
                day_of_month = mday(date),
                md_label = paste(month_label,"-",day_of_month,sep = ""))->test
       
-      {test %>%    
+      test %>%    
         ggplot()+
         geom_ribbon(aes(ymin=q0,ymax=q1, x = day_of_year),col="grey",alpha=0.2)+
         geom_ribbon(aes(ymin=q25,ymax=q75, x = day_of_year),col="grey",alpha=0.5)+
@@ -508,9 +506,8 @@ In order to estimate how successful our campaign might be, we conducted a simula
         xlab("Campaign Starting Day")+
         geom_text(label = "estimated total number of flight days",
                   y=37.3,
-                  x=280)+
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) } %>%
-  ggplotly()
+                  x=284)+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
       
 
       
