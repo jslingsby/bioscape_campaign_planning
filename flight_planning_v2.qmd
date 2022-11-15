@@ -374,6 +374,9 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 
 # Campaign Simulations
 
+
+## Simulations using cloud data only
+
 In order to estimate how successful our campaign might be, we conducted a simulation using the MODIS aqua and terra cloud data.
 
 1) Calculate mean cloud cover for each flight box for each day in the temporal window of interest (October-December, 2000 to present).
@@ -391,8 +394,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 14
-#| fig.height: 10
+#| out.width: 100%
 #| strip.white: TRUE
 #| fig.cap: "Figure 6. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
      
@@ -438,6 +440,77 @@ In order to estimate how successful our campaign might be, we conducted a simula
                   y=37.3,
                   x=280)+
         theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+      
+
+      
+
+
+```
+
+## Simulations using cloud and wind data
+
+In order to estimate how successful our campaign might be, we conducted a simulation using the MODIS aqua and terra cloud data.
+
+  1) Calculate mean cloud cover and median wind speed for each flight box for each day in the temporal window of interest (October-December, 2000 to present).
+
+  2) Rank flight boxes in descending order of priority. The aquatic sites receive the highest priority and are further ranked in descending order of median wind speed. The terrestrial sites are ranked in descending order of mean cloud cover. Thus, the highest priority is the windiest aquatic site and the lowest priority is the terrestrial site with the least cloud cover.
+
+  3) For each day in time time series:
+    a) If there are at least 60 days in which to sampling, continue. Else, skip.
+    b) Sample the highest ranking (i.e. hardest to sample) site (if any) that is below 5% cloud cover, has a median wind speed of less than 5 m/s(if it is an aquatic site), and hasn't been sampled. 
+    c) Repeat b until all sites have been sampled or no more time remains
+
+
+```{r campaing time estimate w wind}
+#| echo: true
+#| message: false
+#| warning: false
+#| out.width: 100%
+#| strip.white: TRUE
+#| fig.cap: "Figure 6. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
+     
+  #code underlying simulations available in the file "R/flight_window.R"
+
+   #readRDS("data/temp/sim_output_01_cloud_5ms_wind.RDS")%>%
+     readRDS("data/temp/sim_output_05_cloud_5ms_wind.RDS")%>%
+   #readRDS("data/temp/sim_output_10_cloud_5ms_wind.RDS")%>%
+        na.omit()%>%
+        group_by(start_date)%>%
+        summarise(sites_done = sum(!is.na(box_id)),
+                  mean_cc = mean(na.omit(mean_cloud_cover)),
+                  days_taken = max(date)-min(start_date)+1)%>%
+        ungroup()%>%
+        mutate(day_of_year = yday(as_date(start_date)),
+               year = year(as_date(start_date)))%>%
+        group_by(day_of_year)%>%
+        summarise(q0 = quantile(days_taken,probs=0),
+                  q25 = quantile(days_taken,probs=0.05),
+                  q50 = quantile(days_taken,probs=0.5),
+                  q75 = quantile(days_taken,probs=0.95),
+                  q1 = quantile(days_taken,probs=1)
+        ) %>%
+        mutate(date = as.Date(day_of_year,origin="2022-12-31"))%>%
+        mutate(start_of_month = floor_date(date,unit = "month"),
+               month_label = month(start_of_month,label = TRUE),
+               julian_label = yday(start_of_month),
+               day_of_month = mday(date),
+               md_label = paste(month_label,"-",day_of_month,sep = ""))->test
+      
+      {test %>%    
+        ggplot()+
+        geom_ribbon(aes(ymin=q0,ymax=q1, x = day_of_year),col="grey",alpha=0.2)+
+        geom_ribbon(aes(ymin=q25,ymax=q75, x = day_of_year),col="grey",alpha=0.5)+
+        geom_line(aes(x=day_of_year,y=q50))+
+        geom_hline(yintercept = 37,lty=2)+
+        scale_x_continuous(breaks = test$day_of_year,
+                           labels = test$md_label)+ #note: it seems like it should be possible to inherit these
+        ylab("Flight Days Needed")+
+        xlab("Campaign Starting Day")+
+        geom_text(label = "estimated total number of flight days",
+                  y=37.3,
+                  x=280)+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) } %>%
+  ggplotly()
       
 
       
