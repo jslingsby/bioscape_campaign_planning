@@ -181,24 +181,14 @@ To visualize spatial patterns on cloud cover, we calculated the average cloud co
 #| message: false
 #| warning: false
 #| fig-cap: "Figure 2. Mean cloud cover. Whiter raster cells are cloudier, bluer cells are clearer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
-#| fig.width: 10
-#| fig.height: 10
+#| out.width: 100%
 #| strip.white: TRUE
 #| code-fold: true
 
 #Pull in other bioscape layers
 
-    cloud_table %>%
-      na.omit()%>%
-      filter(month != 9)%>%
-      mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
-      group_by(id)%>%
-      summarize(prop_clear = sum(binary_clear)/n(),
-                clear_days = sum(binary_clear),
-                total_days = n())%>%
-      mutate(prop_clear = round(prop_clear,2))%>%
-      inner_join(x = boxes_sf)%>%
-    st_transform(crs = st_crs(4326)) -> flights
+  boxes_sf %>%
+  st_transform(crs = st_crs(4326)) -> flights
 
   team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
       st_transform(crs = st_crs(4326))
@@ -217,51 +207,23 @@ To visualize spatial patterns on cloud cover, we calculated the average cloud co
                       domain = 0:1, #unique(values(mean_cloud_cover)),
                       reverse = TRUE)
 
+#Get wind data  
+  median_era5_wind_speed <- raster("data/output/median_era5_speed.tif")
+  
+
+#Make a palette
+  pal_era5 <- colorNumeric(palette = colorRamp(c("white", "magenta"), interpolate = "spline"),
+                      domain = unique(values(median_era5_wind_speed)),na.color = NA)
+
 
 
 #Make labels
 labels <- sprintf(as.character(flights$prop_clear)) %>%
   lapply(htmltools::HTML)
-# 
-# leaflet(data = flights) %>%
-#   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
-#   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
-#   addMapPane("flights", zIndex = 420) %>%
-#   addMapPane("requests", zIndex = 410)%>% 
-#      addPolygons(stroke = TRUE,
-#               group = "Flights",
-#               color = ~pal(prop_clear),
-#               opacity = 1,
-#               label = labels,
-#               options = pathOptions(pane = "flights"))%>%
-#   addPolygons(data = domain_wgs84,
-#               stroke = TRUE,
-#               color = "grey",
-#               fill = FALSE,
-#               weight = 3) %>%
-#       addPolygons(data = team_requests%>%
-#                 st_zm(drop = T, what = "ZM"),
-#                   stroke = TRUE,
-#                   color = "brown",
-#                   group = "Requests",
-#               options = pathOptions(pane = "requests"))%>%  
-#     addMouseCoordinates() %>%
-#     #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
-#   leaflet::addLegend(position = "bottomright",
-#             pal = pal,
-#             values = unique(flights$prop_clear),
-#             opacity = 1,
-#             title = "Cluster") %>%
-#     addLayersControl(
-#     baseGroups = c("World Imagery","NatGeo"),
-#     overlayGroups = c("Flights","Requests"),
-#     options = layersControlOptions(collapsed = FALSE),
-#     position = "topright")
 
 
-flights %>%
-  left_join(y = boxes_sf %>%
-    st_drop_geometry())%>%
+  boxes_sf %>%
+  st_transform(crs = st_crs(4326)) %>%
 leaflet() %>%
   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
@@ -270,6 +232,10 @@ leaflet() %>%
   addRasterImage(x = mean_cloud_cover,
                  group = "Clouds",
                  colors = pal2,
+                 opacity = 1) %>%
+      addRasterImage(x = median_era5_wind_speed,
+                 group = "Wind",
+                 colors = pal_era5,
                  opacity = 1) %>%
      addPolygons(stroke = TRUE,
               group = "Flights",
@@ -297,12 +263,17 @@ leaflet() %>%
             values = 0:1,
             opacity = 1,
             title = "Mean\nCloud\nCover") %>%
+    leaflet::addLegend(position = "bottomleft",
+            pal = pal_era5,
+            values = min(unique(values(median_era5_wind_speed))):max(unique(values(median_era5_wind_speed))),
+            opacity = 1,
+            title = "Median\nWind\nSpeed",) %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Flights","Requests","Clouds"),
+    overlayGroups = c("Flights","Requests","Clouds","Wind"),
     options = layersControlOptions(collapsed = FALSE),
     position = "topright") %>%
-  hideGroup("Requests")
+  hideGroup(c("Requests","Wind"))
 
 
 
