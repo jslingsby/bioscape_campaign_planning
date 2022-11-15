@@ -7,11 +7,12 @@ output:
     code_folding: hide
 ---
 
-# Clouds
+# Environmental Data
 
-In this file, the goal is to quantify the historical cloud cover in the planned flight boxes and to assess the implications for BioSCape operations.
+In this file, the goal is to quantify the historical cloud cover and wind speeds in the planned flight boxes and to assess the implications for BioSCape operations.
 
-To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear". Here, we consider any raster cell categorized as "cloudy" to be cloud covered and other categories to be cloud-free (Figure 1).
+To assess potential cloud cover during the BioSCape campaign, here we use cloud cover data from the MODIS aqua (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) and terra (https://developers.google.com/earth-engine/datasets/catalog/MODIS_061_MOD09GA) daily surface reflectance products with a 1km resolution. The QA metadata for these products assigns each raster cell one of 4 cloud categories: Clear, Cloudy, Mixed, or "Not set, assumed clear". Here, we consider any raster cell categorized as "cloudy" to be cloud covered and other categories to be cloud-free (Figure 1). To assess potential wind speeds, we used wind speed data from ERA5. Wind data are hourly and have a 0.25 degree resolution.
+
   
 
 
@@ -67,7 +68,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
     
     cloud_table <- read.csv("data/test_cloud_stats.csv")
 
-  # Parse date
+  # modis clouds
 
     cloud_table %>%
       mutate(year = year(date),
@@ -75,18 +76,21 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
              day = day(date),
              day_of_year = yday(date)) -> cloud_table
   
+  #Load era5 wind data
     
+    era5_wind_table <- readRDS("data/output/era_wind_weighted.RDS")
+
 
 ```
 
 
 
-```{r example data}
+```{r example cloud data}
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 10
-#| fig.height: 20
+#| out.width: 100%
+#| out.height: 300%
 #| include: true
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -94,6 +98,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
 
 
 #Load in the correct projection (for some reason this is handled incorrectly otherwise)
+
   nasa_proj <- "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
 
 #Load the example layers
@@ -168,33 +173,23 @@ ggarrange(c1,c2,c3,
 
 ```
 
-### Mean Cloud Cover
+### Cloud Cover and Wind Speed
 
-To visualize spatial patterns on cloud cover, we calculated the average cloud cover for each raster cell (Figure 2).  Averages were taken across days (October-December) and years (2000-present).
+To visualize spatial patterns of cloud cover and wind speed, we calculated the averages for each raster cell (Figure 2).  For cloud cover, to took the mean value across days (October-December) and years (2000-present). For wind speed, we took median values. We also include median wind speed estimates from FEWSNET (https://developers.google.com/earth-engine/datasets/catalog/NASA_FLDAS_NOAH01_C_GL_M_V001), which are monthly estimates at ~11km resolution.
 
 ```{r leaflet plot of clusters}
 #| echo: true
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 2. Mean cloud cover. Whiter raster cells are cloudier, bluer cells are clearer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
-#| fig.width: 10
-#| fig.height: 10
+#| fig-cap: "Figure 2. Mean cloud cover. Whiter raster cells are cloudier, bluer cells are clearer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. 'Wind E' = Median Wind Speed from ERA5 data.'Wind F' = Median Wind Speed from FEWSNEWS data"
+#| out.width: 100%
 #| strip.white: TRUE
 #| code-fold: true
 
 #Pull in other bioscape layers
 
-    cloud_table %>%
-      na.omit()%>%
-      filter(month != 9)%>%
-      mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
-      group_by(id)%>%
-      summarize(prop_clear = sum(binary_clear)/n(),
-                clear_days = sum(binary_clear),
-                total_days = n())%>%
-      mutate(prop_clear = round(prop_clear,2))%>%
-      inner_join(x = boxes_sf)%>%
-    st_transform(crs = st_crs(4326)) -> flights
+  boxes_sf %>%
+  st_transform(crs = st_crs(4326)) -> flights
 
   team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE) %>%
       st_transform(crs = st_crs(4326))
@@ -213,51 +208,23 @@ To visualize spatial patterns on cloud cover, we calculated the average cloud co
                       domain = 0:1, #unique(values(mean_cloud_cover)),
                       reverse = TRUE)
 
+#Get era wind data  
+  median_era5_wind_speed <- raster("data/output/median_era5_speed.tif")
 
+#Get fewsnet wind data  
+  median_fewsnet_wind_speed <- raster("data/output/median_wind_fewsnet.tif")
+
+#Make a palette
+  pal_era5 <- colorNumeric(palette = colorRamp(c("white", "magenta"), interpolate = "spline"),
+                      domain = unique(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed))),na.color = NA)
 
 #Make labels
 labels <- sprintf(as.character(flights$prop_clear)) %>%
   lapply(htmltools::HTML)
-# 
-# leaflet(data = flights) %>%
-#   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
-#   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
-#   addMapPane("flights", zIndex = 420) %>%
-#   addMapPane("requests", zIndex = 410)%>% 
-#      addPolygons(stroke = TRUE,
-#               group = "Flights",
-#               color = ~pal(prop_clear),
-#               opacity = 1,
-#               label = labels,
-#               options = pathOptions(pane = "flights"))%>%
-#   addPolygons(data = domain_wgs84,
-#               stroke = TRUE,
-#               color = "grey",
-#               fill = FALSE,
-#               weight = 3) %>%
-#       addPolygons(data = team_requests%>%
-#                 st_zm(drop = T, what = "ZM"),
-#                   stroke = TRUE,
-#                   color = "brown",
-#                   group = "Requests",
-#               options = pathOptions(pane = "requests"))%>%  
-#     addMouseCoordinates() %>%
-#     #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
-#   leaflet::addLegend(position = "bottomright",
-#             pal = pal,
-#             values = unique(flights$prop_clear),
-#             opacity = 1,
-#             title = "Cluster") %>%
-#     addLayersControl(
-#     baseGroups = c("World Imagery","NatGeo"),
-#     overlayGroups = c("Flights","Requests"),
-#     options = layersControlOptions(collapsed = FALSE),
-#     position = "topright")
 
 
-flights %>%
-  left_join(y = boxes_sf %>%
-    st_drop_geometry())%>%
+  boxes_sf %>%
+  st_transform(crs = st_crs(4326)) %>%
 leaflet() %>%
   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
@@ -266,6 +233,14 @@ leaflet() %>%
   addRasterImage(x = mean_cloud_cover,
                  group = "Clouds",
                  colors = pal2,
+                 opacity = 1) %>%
+      addRasterImage(x = median_era5_wind_speed,
+                 group = "Wind E",
+                 colors = pal_era5,
+                 opacity = 1) %>%
+      addRasterImage(x = median_fewsnet_wind_speed,
+                 group = "Wind F",
+                 colors = pal_era5,
                  opacity = 1) %>%
      addPolygons(stroke = TRUE,
               group = "Flights",
@@ -292,13 +267,18 @@ leaflet() %>%
             pal = pal2,
             values = 0:1,
             opacity = 1,
-            title = "Mean\nCloud\nCover") %>%
+            title = "Cloud Cover") %>%
+    leaflet::addLegend(position = "bottomleft",
+            pal = pal_era5,
+            values = min(na.omit(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed)))):max(na.omit(c(values(median_era5_wind_speed),values(median_fewsnet_wind_speed)))),
+            opacity = 1,
+            title = "Wind (m/s)",) %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Flights","Requests","Clouds"),
+    overlayGroups = c("Flights","Requests","Clouds","Wind E", "Wind F"),
     options = layersControlOptions(collapsed = FALSE),
     position = "topright") %>%
-  hideGroup("Requests")
+  hideGroup(c("Requests","Wind E", "Wind F"))
 
 
 
@@ -314,8 +294,7 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 10
-#| fig.height: 10
+#| out.width: 100%
 #| fig.cap: "Figure 3. Rows represent different flight boxes (see Fig 2.), columns different days."
 #| code-fold: true
   #ID by day of year
@@ -333,7 +312,7 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
       
 
 
-    { temp %>%
+    temp %>%
       ggplot() +
       geom_tile(mapping = aes(x = day_of_year,
                               y = ordered_id,
@@ -346,86 +325,13 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
       labs(fill="Mean\nCloud\nCover",
            y="Flight Box ID",
            x = "Day of Year")+
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))} %>%
-  ggplotly()
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 
 ```
 
 
-
-# Mean monthly cloud cover
-
-We calculated spatiotemporal aggregations of mean cloud cover by month and flight box (Figure 4). In other words, we aggregated both spatially (all cells within the domain) and temporally (all days within the given month across all years).
-
-```{r monthly cloud cover}
-#| echo: true
-#| message: false
-#| warning: false
-#| fig.width: 10
-#| fig.height: 20
-#| fig.cap: "Figure 4. The full domain (light grey) and planned flight boxes, colored by mean monthly cloud cover. Cloud cover was calculated as the fraction of cells labelled as 'cloudy'. Numbers on flight boxes refer to mean cloud cover."
-#| code-fold: true
-
-# mean monthly cloud cover
-    {cloud_table %>%
-      group_by(id, month)%>%
-      filter(month != 9)%>%
-      summarize(mean_cc = mean(na.omit(mean)))%>%
-      inner_join(x = boxes_sf)%>%
-      ggplot(mapping = aes(fill = mean_cc))+
-      geom_sf()+
-      geom_sf(data = domain_sf,
-              inherit.aes = FALSE,fill=NA)+
-      scale_fill_gradient(low = "sky blue",high = "white")+
-      facet_wrap(~month,ncol = 1)+
-      geom_sf_text(aes(label = round(mean_cc,digits = 2)))+
-      labs(fill="Mean\nCloud\nCover")+
-      xlab(NULL)+
-      ylab(NULL)} %>%
-  ggplotly()
-
-
-```
-
-
-# Median monthly cloud cover
-
-We also did spatiotemporal aggregations of median cloud cover by month and flight box (Figure 5). First, we calculated the fraction of cloud cover within each flight box, and then we calculated the median cloud cover for each month (across all years).
-
-
-```{r median monthly cloud cover}
-#| echo: true
-#| message: false
-#| warning: false
-#| fig.width: 10
-#| fig.height: 20
-#| fig.cap: "Figure 5. The full domain (light grey) and planned flight boxes, colored by mean monthly cloud cover.Numbers on flight boxes refer to median cloud cover."
-#| code-fold: true
-
-# mean monthly cloud cover
-    {cloud_table %>%
-      group_by(id, month)%>%
-      filter(month != 9)%>%
-      summarize(median_cc = median(na.omit(mean)))%>%
-      inner_join(x = boxes_sf)%>%
-      ggplot(mapping = aes(fill = median_cc))+
-      geom_sf()+
-      geom_sf(data = domain_sf,
-              inherit.aes = FALSE,fill=NA)+
-      scale_fill_gradient(low = "sky blue",high = "white")+
-      facet_wrap(~month,ncol = 1)+
-      geom_sf_text(aes(label = round(median_cc,digits = 2)))+
-      labs(fill="Median\nCloud\nCover")+
-      xlab(NULL)+
-      ylab(NULL)} %>%
-  ggplotly()
-
-
-```
-
-
-## Proportion of clear days for each flight box
+# Proportion of clear days for each flight box
 
 Here, we define a "clear" day as one with a mean cloud cover of less than 10 percent.
 
@@ -433,14 +339,14 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 10
-#| fig.height: 8
+#| out.width: 100%
+#| out.height: 50%
 #| strip.white: TRUE
-#| fig.cap: "Figure 6. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
+#| fig.cap: "Figure 4. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
 #| code-fold: true
 
     #prop clear days
-    {cloud_table %>%
+    cloud_table %>%
       na.omit()%>%
       filter(month != 9)%>%
       mutate(binary_clear = dplyr::if_else(mean <= .1,true = 1,false = 0)) %>%
@@ -456,16 +362,41 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
       geom_sf_text(aes(label = round(prop_clear,digits = 2)))+
       labs(fill = "Prop.\nClear",
            x=NULL,
-           y=NULL)} %>%
-  ggplotly()
-
-
-
+           y=NULL)
 
 ```
 
+# Diurnal patterns in wind speed
+
+```{r diurnal patterns}
+#| echo: true
+#| message: false
+#| warning: false
+#| out.height: 100%
+#| fig.cap: "Figure 5. Diurnal patterns in wind speed. Dots represent the 90th percentile wind speed in a flight box at a particular hour. Numbers above the plots refer to flight boxes. Lines shone are a loess fit."
+#| code-fold: true
+
+era5_wind_table %>%
+  inner_join(x = boxes_sf,
+                 by = c("id"="ID"))%>%
+  group_by(ordered_id, hour)%>%
+  ggplot()+
+  geom_point(mapping = aes(x=hour,y = wgt_90pct_wind_speed,color=target),alpha=0.5)+
+  geom_smooth(mapping = aes(x=hour,y=wgt_90pct_wind_speed),method = "loess")+
+  facet_wrap(~ordered_id)+
+  ylab("90th Percentile Wind Speed")+
+  geom_hline(yintercept = 5, lty = 2)+
+  scale_color_manual(values = c("Aquatic" = "blue",
+                                "Terrestrial"="brown",
+                                "Terrestrial (coincident aquatic)"="tan")) 
+```
+
+
 
 # Campaign Simulations
+
+
+## Simulations using cloud data only
 
 In order to estimate how successful our campaign might be, we conducted a simulation using the MODIS aqua and terra cloud data.
 
@@ -474,8 +405,11 @@ In order to estimate how successful our campaign might be, we conducted a simula
 2) Rank flight boxes in descending order of cloud cover.
 
 3) For each day in time time series:
+
   a) If there are at least 60 days in which to sampling, continue. Else, skip.
+  
   b) Sample the highest ranking (i.e. hardest to sample) site that is below 5% cloud cover (if any) and hasn't been sampled.
+  
   c) Repeat b until all sites have been sampled or no more time remains
 
 
@@ -484,8 +418,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
 #| echo: true
 #| message: false
 #| warning: false
-#| fig.width: 14
-#| fig.height: 10
+#| out.width: 100%
 #| strip.white: TRUE
 #| fig.cap: "Figure 6. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
      
@@ -517,7 +450,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
                day_of_month = mday(date),
                md_label = paste(month_label,"-",day_of_month,sep = ""))->test
       
-      {test %>%    
+      test %>%    
         ggplot()+
         geom_ribbon(aes(ymin=q0,ymax=q1, x = day_of_year),col="grey",alpha=0.2)+
         geom_ribbon(aes(ymin=q25,ymax=q75, x = day_of_year),col="grey",alpha=0.5)+
@@ -529,9 +462,81 @@ In order to estimate how successful our campaign might be, we conducted a simula
         xlab("Campaign Starting Day")+
         geom_text(label = "estimated total number of flight days",
                   y=37.3,
-                  x=280)+
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) } %>%
-  ggplotly()
+                  x=282)+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+      
+
+      
+
+
+```
+
+## Simulations using cloud and wind data
+
+In order to estimate how successful our campaign might be, we conducted a simulation using the MODIS aqua and terra cloud data.
+
+  1) Calculate mean cloud cover and median wind speed for each flight box for each day in the temporal window of interest (October-December, 2000 to present).
+
+  2) Rank flight boxes in descending order of priority. The aquatic sites receive the highest priority and are further ranked in descending order of median wind speed. The terrestrial sites are ranked in descending order of mean cloud cover. Thus, the highest priority is the windiest aquatic site and the lowest priority is the terrestrial site with the least cloud cover.
+
+  3) For each day in time time series:
+  
+    a) If there are at least 60 days in which to sampling, continue. Else, skip.
+    
+    b) Sample the highest ranking (i.e. hardest to sample) site (if any) that is below 5% cloud cover, has a median wind speed of less than 5 m/s(if it is an aquatic site), and hasn't been sampled.
+    
+    c) Repeat b until all sites have been sampled or no more time remains
+
+
+```{r campaing time estimate w wind}
+#| echo: true
+#| message: false
+#| warning: false
+#| out.width: 100%
+#| strip.white: TRUE
+#| fig.cap: "Figure 7. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
+     
+  #code underlying simulations available in the file "R/flight_window.R"
+
+   #readRDS("data/temp/sim_output_01_cloud_5ms_wind.RDS")%>%
+     readRDS("data/temp/sim_output_05_cloud_5ms_wind.RDS")%>%
+   #readRDS("data/temp/sim_output_10_cloud_5ms_wind.RDS")%>%
+        na.omit()%>%
+        group_by(start_date)%>%
+        summarise(sites_done = sum(!is.na(box_id)),
+                  mean_cc = mean(na.omit(mean_cloud_cover)),
+                  days_taken = max(date)-min(start_date)+1)%>%
+        ungroup()%>%
+        mutate(day_of_year = yday(as_date(start_date)),
+               year = year(as_date(start_date)))%>%
+        group_by(day_of_year)%>%
+        summarise(q0 = quantile(days_taken,probs=0),
+                  q25 = quantile(days_taken,probs=0.05),
+                  q50 = quantile(days_taken,probs=0.5),
+                  q75 = quantile(days_taken,probs=0.95),
+                  q1 = quantile(days_taken,probs=1)
+        ) %>%
+        mutate(date = as.Date(day_of_year,origin="2022-12-31"))%>%
+        mutate(start_of_month = floor_date(date,unit = "month"),
+               month_label = month(start_of_month,label = TRUE),
+               julian_label = yday(start_of_month),
+               day_of_month = mday(date),
+               md_label = paste(month_label,"-",day_of_month,sep = ""))->test
+      
+      test %>%    
+        ggplot()+
+        geom_ribbon(aes(ymin=q0,ymax=q1, x = day_of_year),col="grey",alpha=0.2)+
+        geom_ribbon(aes(ymin=q25,ymax=q75, x = day_of_year),col="grey",alpha=0.5)+
+        geom_line(aes(x=day_of_year,y=q50))+
+        geom_hline(yintercept = 37,lty=2)+
+        scale_x_continuous(breaks = test$day_of_year,
+                           labels = test$md_label)+ #note: it seems like it should be possible to inherit these
+        ylab("Flight Days Needed")+
+        xlab("Campaign Starting Day")+
+        geom_text(label = "estimated total number of flight days",
+                  y=37.3,
+                  x=284)+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
       
 
       
