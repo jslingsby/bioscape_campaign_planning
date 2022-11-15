@@ -90,6 +90,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
 #| message: false
 #| warning: false
 #| out.width: 100%
+#| out.height: 300%
 #| include: true
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -180,7 +181,7 @@ To visualize spatial patterns of cloud cover and wind speed, we calculated the a
 #| echo: true
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 2. Mean cloud cover. Whiter raster cells are cloudier, bluer cells are clearer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. "
+#| fig-cap: "Figure 2. Mean cloud cover. Whiter raster cells are cloudier, bluer cells are clearer. Boxes shown are flight boxes, labeled with a unique ID.  Polygons are the requested sampling regions. 'Wind E' = Median Wind Speed from ERA5 data.'Wind F' = Median Wind Speed from FEWSNEWS data"
 #| out.width: 100%
 #| strip.white: TRUE
 #| code-fold: true
@@ -234,11 +235,11 @@ leaflet() %>%
                  colors = pal2,
                  opacity = 1) %>%
       addRasterImage(x = median_era5_wind_speed,
-                 group = "ERA5 Wind",
+                 group = "Wind E",
                  colors = pal_era5,
                  opacity = 1) %>%
       addRasterImage(x = median_fewsnet_wind_speed,
-                 group = "FEWSNET Wind",
+                 group = "Wind F",
                  colors = pal_era5,
                  opacity = 1) %>%
      addPolygons(stroke = TRUE,
@@ -274,10 +275,10 @@ leaflet() %>%
             title = "Wind (m/s)",) %>%
     addLayersControl(
     baseGroups = c("World Imagery","NatGeo"),
-    overlayGroups = c("Flights","Requests","Clouds","ERA5 Wind", "FEWSNET Wind"),
+    overlayGroups = c("Flights","Requests","Clouds","Wind E", "Wind F"),
     options = layersControlOptions(collapsed = FALSE),
     position = "topright") %>%
-  hideGroup(c("Requests","ERA5 Wind", "FEWSNET Wind"))
+  hideGroup(c("Requests","Wind E", "Wind F"))
 
 
 
@@ -341,7 +342,7 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| out.width: 100%
 #| out.height: 50%
 #| strip.white: TRUE
-#| fig.cap: "Figure 6. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
+#| fig.cap: "Figure 4. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
 #| code-fold: true
 
     #prop clear days
@@ -390,7 +391,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
 #| warning: false
 #| out.width: 100%
 #| strip.white: TRUE
-#| fig.cap: "Figure 6. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
+#| fig.cap: "Figure 5. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
      
   #code underlying simulations available in the file "R/flight_window.R"
 
