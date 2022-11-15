@@ -35,6 +35,9 @@ library(lubridate)
     cloud_table %>%
       mutate(unix_date = as.numeric(as_date(date))) -> cloud_table
     
+    cloud_table %>%
+      group_by(id,date,target,unix_date)%>%
+      summarize(mean = mean(na.omit(mean))) -> cloud_table
     
     # Rank boxes by mean cloud cover (will be used to determine priority)
     

@@ -475,7 +475,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
 
 3) For each day in time time series:
   a) If there are at least 60 days in which to sampling, continue. Else, skip.
-  b) Sample the highest ranking (i.e. hardest to sample) site that is below 10% cloud cover (if any) and hasn't been sampled.
+  b) Sample the highest ranking (i.e. hardest to sample) site that is below 5% cloud cover (if any) and hasn't been sampled.
   c) Repeat b until all sites have been sampled or no more time remains
 
 

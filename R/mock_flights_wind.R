@@ -46,7 +46,7 @@ source("R/batch_extract.R")
   boxes <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg") %>%
             st_transform(crs = crs(era_speed))
 
-# extract the cloud cover for flight boxes  
+# extract the wind speedfor flight boxes  
   
   era_wind_boxes <-
     batch_extract(x = era_speed,
