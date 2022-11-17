@@ -285,6 +285,62 @@ leaflet() %>%
 ```
 
 
+# Median Monthly Wind Speed and Cloud Cover
+
+We also did spatiotemporal aggregations of mean wind speed by month and flight box (Figure 4). In other words, we aggregated both spatially (all cells within the domain) and temporally (all days within the given month across all years).
+
+```{r monthly wind speed era5}
+#| echo: true
+#| message: false
+#| warning: false
+#| out.width: 100%
+#| fig.cap: "Figure 2. The full domain (light grey) and planned flight boxes, colored by mean monthly wind speed. Numbers on flight boxes refer to mean wind speed."
+#| code-fold: true
+#| fig.asp: 1
+
+# mean monthly wind speed
+    era5_wind_table %>%
+      group_by(ID, month)%>%
+      filter(month != 9)%>%
+      summarize(mean_cc = median(na.omit(wgt_median_wind_speed)))%>%
+      inner_join(x = boxes_sf,
+                 by = c("id"="ID"))%>%
+      ggplot(mapping = aes(fill = mean_cc))+
+      geom_sf()+
+      geom_sf(data = domain_sf,
+              inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "white",high = "magenta")+
+      facet_wrap(~month,ncol = 1)+
+      geom_sf_text(aes(label = round(mean_cc,digits = 2)),size=1)+
+      labs(fill="Mean\nWind\nSpeed\n(m/s)")+
+      xlab(NULL)+
+      ylab(NULL) -> monthly_wind
+
+
+    cloud_table %>%
+      group_by(id, month)%>%
+      filter(month != 9)%>%
+      summarize(mean_cc = mean(na.omit(mean)))%>%
+      inner_join(x = boxes_sf,
+                 by = c("id"="id"))%>%
+      ggplot(mapping = aes(fill = mean_cc))+
+      geom_sf()+
+      geom_sf(data = domain_sf,
+              inherit.aes = FALSE,fill=NA)+
+      scale_fill_gradient(low = "light blue",high = "white")+
+      facet_wrap(~month,ncol = 1)+
+      geom_sf_text(aes(label = round(mean_cc,digits = 2)),size=3)+
+      labs(fill="Mean\nCloud\nCover")+
+      xlab(NULL)+
+      ylab(NULL) -> monthly_cloud
+
+  ggarrange(monthly_cloud,monthly_wind,legend = "bottom")  
+  
+
+```
+
+
+
 ```{r cloud and wind levelplots, eval =FALSE}
 #| echo: true
 #| message: false
@@ -328,6 +384,7 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
 #| fig.cap: "Figure 3. Rows represent different flight boxes (see Fig 2.), columns different days."
 #| code-fold: true
 #| out.width: 100%
+#| fig.asp: 1
 ##| out.height: 1200%
 
   #ID by day of year
@@ -352,14 +409,17 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
                               fill = mean))+
       scale_fill_gradient(low = "sky blue",
                           high = "white")+
-      facet_wrap(~year)+
         scale_x_continuous(breaks = temp$julian_label,
                            labels = temp$month_label)+
       labs(fill="Mean\nCloud\nCover",
            y="Flight Box ID",
            x = "Day of Year")+
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+              aspect.ratio = 1)+
+      facet_wrap(~year)
 
+    
+    #library(ggforce)
 
 ```
 
