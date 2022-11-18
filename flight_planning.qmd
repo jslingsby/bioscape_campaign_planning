@@ -311,7 +311,7 @@ We also did spatiotemporal aggregations of mean wind speed by month and flight b
               inherit.aes = FALSE,fill=NA)+
       scale_fill_gradient(low = "white",high = "magenta")+
       facet_wrap(~month,ncol = 1)+
-      geom_sf_text(aes(label = round(mean_cc,digits = 2)),size=1)+
+      geom_sf_text(aes(label = round(mean_cc,digits = 2)),size=2)+
       labs(fill="Mean\nWind\nSpeed\n(m/s)")+
       xlab(NULL)+
       ylab(NULL) -> monthly_wind
