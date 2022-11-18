@@ -478,10 +478,10 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| message: false
 #| warning: false
 #| out.width: 100%
-#| out.height: 50%
 #| strip.white: TRUE
 #| fig.cap: "Figure 5. Proportion of clear days (mean cloud cover < 10% ) for each flight box. Values in boxes are the proportion of clear days for that box"
 #| code-fold: true
+##| out.height: 50%
 
     #prop clear days
     cloud_table %>%
@@ -521,7 +521,7 @@ era5_wind_table %>%
   ggplot()+
   geom_point(mapping = aes(x=hour,y = wgt_90pct_wind_speed,color=target),alpha=0.5)+
   geom_smooth(mapping = aes(x=hour,y=wgt_90pct_wind_speed),method = "loess")+
-  facet_wrap(~ordered_id)+
+  facet_wrap(~ordered_id,nrow = 2)+
   ylab("90th Percentile Wind Speed")+
   geom_hline(yintercept = 5, lty = 2)+
   scale_color_manual(values = c("Aquatic" = "blue",
