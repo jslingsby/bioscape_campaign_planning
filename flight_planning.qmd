@@ -510,7 +510,7 @@ Here, we define a "clear" day as one with a mean cloud cover of less than 10 per
 #| echo: true
 #| message: false
 #| warning: false
-#| out.height: 100%
+#| out.width: 100%
 #| fig.cap: "Figure 6. Diurnal patterns in wind speed. Dots represent the 90th percentile wind speed in a flight box at a particular hour. Numbers above the plots refer to flight boxes. Lines shone are a loess fit."
 #| code-fold: true
 
@@ -526,7 +526,8 @@ era5_wind_table %>%
   geom_hline(yintercept = 5, lty = 2)+
   scale_color_manual(values = c("Aquatic" = "blue",
                                 "Terrestrial"="brown",
-                                "Terrestrial (coincident aquatic)"="tan")) 
+                                "Terrestrial (coincident aquatic)"="tan")) +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
 
 
