@@ -695,6 +695,7 @@ In order to estimate how successful our campaign might be, we conducted a simula
     
   c) Repeat b until all sites have been sampled or no more time remains
 
+The underlying code for the analysis is available at: https://github.com/BioSCape-io/terrestrial_sampling/blob/main/R/flight_window_w_wind.R
 
 ```{r campaing time estimate w wind}
 #| echo: true
