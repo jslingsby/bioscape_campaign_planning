@@ -329,7 +329,7 @@ We also did spatiotemporal aggregations of mean wind speed by month and flight b
               inherit.aes = FALSE,fill=NA)+
       scale_fill_gradient(low = "light blue",high = "white")+
       facet_wrap(~month,ncol = 1)+
-      geom_sf_text(aes(label = round(mean_cc,digits = 2)),size=3)+
+      geom_sf_text(aes(label = round(mean_cc,digits = 2)),size=2)+
       labs(fill="Mean\nCloud\nCover")+
       xlab(NULL)+
       ylab(NULL) -> monthly_cloud
