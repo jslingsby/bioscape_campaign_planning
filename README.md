@@ -1,10 +1,8 @@
-# Terrestrial sampling design
+# BioSCape sampling design and flight planning
 
-Current design available <u><a href="https://bioscape-io.github.io/terrestrial_sampling/sampling_design">here</a>.</u>
+Current terrestrial sampling design available <u><a href="https://bioscape-io.github.io/terrestrial_sampling/sampling_design">here</a>.</u>
 
-Information on flight paths and cloud cover available <u><a href="https://bioscape-io.github.io/terrestrial_sampling/flight_planning">here</a>.</u>
-
-Information on flight paths and wind speed available <u><a href="https://bioscape-io.github.io/terrestrial_sampling/flight_planning_wind">here</a>.</u>
+Information on flight paths and flight planning available <u><a href="https://bioscape-io.github.io/terrestrial_sampling/flight_planning">here</a>.</u>
 
 
 

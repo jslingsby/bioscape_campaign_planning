@@ -1,7 +1,7 @@
 ---
 title: "Flight Planning"
 author: "Brian Maitner"
-date: "11/8/2022"
+date: "11/18/2022"
 output:
   html_document:
     code_folding: hide
@@ -383,43 +383,76 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
 #| warning: false
 #| fig.cap: "Figure 3. Rows represent different flight boxes (see Fig 2.), columns different days."
 #| code-fold: true
-#| out.width: 100%
-#| fig.asp: 1
-##| out.height: 1200%
+#| fig.show: "hold"
+#| out.width: 60%
+#| fig.asp: .3
+##| out.height: 30%
+
 
   #ID by day of year
   
     cloud_table %>%
-        mutate(date = as.Date(day_of_year,origin="2022-12-31"))%>%
-        mutate(start_of_month = floor_date(date,unit = "month"),
+        mutate(start_of_month = floor_date(as_date(date),unit = "month"),
                month_label = month(start_of_month,label = TRUE),
                julian_label = yday(start_of_month),
                day_of_month = mday(date),
                md_label = paste(month_label,"-",day_of_month,sep = "")) %>%
       group_by(id,day_of_year) %>%
       left_join(y = boxes_sf %>%
-      st_drop_geometry()) -> temp
+      st_drop_geometry())%>%
+  filter(month %in% c(10,11,12)) -> temp
       
 
 
-    temp %>%
-      ggplot() +
-      geom_tile(mapping = aes(x = day_of_year,
-                              y = ordered_id,
-                              fill = mean))+
-      scale_fill_gradient(low = "sky blue",
-                          high = "white")+
-        scale_x_continuous(breaks = temp$julian_label,
-                           labels = temp$month_label)+
-      labs(fill="Mean\nCloud\nCover",
-           y="Flight Box ID",
-           x = "Day of Year")+
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-              aspect.ratio = 1)+
-      facet_wrap(~year)
+    # temp %>%
+    #   ggplot() +
+    #   geom_tile(mapping = aes(x = day_of_year,
+    #                           y = ordered_id,
+    #                           fill = mean))+
+    #   scale_fill_gradient(low = "sky blue",
+    #                       high = "white")+
+    #     scale_x_continuous(breaks = temp$julian_label,
+    #                        labels = temp$month_label)+
+    #   labs(fill="Mean\nCloud\nCover",
+    #        y="Flight Box ID",
+    #        x = "Day of Year")+
+    #     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+    #           aspect.ratio = 1)+
+    #   facet_wrap(~year)
 
     
-    #library(ggforce)
+    
+      
+    for(i in unique(temp$year)){
+      
+      temp %>%
+        filter(year == i)%>%
+        ggplot() +
+        geom_tile(mapping = aes(x = day_of_year,
+                                y = ordered_id,
+                                fill = mean))+
+        scale_fill_gradient(low = "sky blue",
+                            high = "white")+
+          scale_x_continuous(breaks = temp%>%
+                               filter(year==i) %>%
+                               pull(julian_label),
+                             labels = temp%>%
+                               filter(year==i)%>%
+                               pull(month_label),
+                             limits = c(min(temp$julian_label),
+                                        max(temp$julian_label)))+
+        labs(fill="Mean\nCloud\nCover",
+             y="Flight Box ID",
+             x = "Day of Year",
+             title = i) -> tt
+      
+      plot(tt)
+      
+      
+      
+    }
+
+    
 
 ```
 
