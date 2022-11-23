@@ -1,7 +1,7 @@
 ---
 title: "Flight Planning"
 author: "Brian Maitner"
-date: "11/18/2022"
+date: "11/22/2022"
 output:
   html_document:
     code_folding: hide
@@ -384,8 +384,8 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
 #| fig.cap: "Figure 3. Rows represent different flight boxes (see Fig 2.), columns different days."
 #| code-fold: true
 #| fig.show: "hold"
-#| out.width: 60%
-#| fig.asp: .3
+#| out.width: 100%
+#| fig.asp: 1
 ##| out.height: 30%
 
 
@@ -404,54 +404,54 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
       
 
 
-    # temp %>%
-    #   ggplot() +
-    #   geom_tile(mapping = aes(x = day_of_year,
-    #                           y = ordered_id,
-    #                           fill = mean))+
-    #   scale_fill_gradient(low = "sky blue",
-    #                       high = "white")+
-    #     scale_x_continuous(breaks = temp$julian_label,
-    #                        labels = temp$month_label)+
-    #   labs(fill="Mean\nCloud\nCover",
-    #        y="Flight Box ID",
-    #        x = "Day of Year")+
-    #     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-    #           aspect.ratio = 1)+
-    #   facet_wrap(~year)
+    temp %>%
+      ggplot() +
+      geom_tile(mapping = aes(x = day_of_year,
+                              y = ordered_id,
+                              fill = mean))+
+      scale_fill_gradient(low = "sky blue",
+                          high = "white")+
+        scale_x_continuous(breaks = temp$julian_label,
+                           labels = temp$month_label)+
+      labs(fill="Mean\nCloud\nCover",
+           y="Flight Box ID",
+           x = "Day of Year")+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+              aspect.ratio = 1)+
+      facet_wrap(~year)
 
     
     
       
-    for(i in unique(temp$year)){
-      
-      temp %>%
-        filter(year == i)%>%
-        ggplot() +
-        geom_tile(mapping = aes(x = day_of_year,
-                                y = ordered_id,
-                                fill = mean))+
-        scale_fill_gradient(low = "sky blue",
-                            high = "white")+
-          scale_x_continuous(breaks = temp%>%
-                               filter(year==i) %>%
-                               pull(julian_label),
-                             labels = temp%>%
-                               filter(year==i)%>%
-                               pull(month_label),
-                             limits = c(min(temp$julian_label),
-                                        max(temp$julian_label)))+
-        labs(fill="Mean\nCloud\nCover",
-             y="Flight Box ID",
-             x = "Day of Year",
-             title = i) -> tt
-      
-      plot(tt)
-      
-      
-      
-    }
-
+    # for(i in unique(temp$year)){
+    #   
+    #   temp %>%
+    #     filter(year == i)%>%
+    #     ggplot() +
+    #     geom_tile(mapping = aes(x = day_of_year,
+    #                             y = ordered_id,
+    #                             fill = mean))+
+    #     scale_fill_gradient(low = "sky blue",
+    #                         high = "white")+
+    #       scale_x_continuous(breaks = temp%>%
+    #                            filter(year==i) %>%
+    #                            pull(julian_label),
+    #                          labels = temp%>%
+    #                            filter(year==i)%>%
+    #                            pull(month_label),
+    #                          limits = c(min(temp$julian_label),
+    #                                     max(temp$julian_label)))+
+    #     labs(fill="Mean\nCloud\nCover",
+    #          y="Flight Box ID",
+    #          x = "Day of Year",
+    #          title = i) -> tt
+    #   
+    #   plot(tt)
+    #   
+    #   
+    #   
+    # }
+    # 
     
 
 ```
@@ -465,8 +465,8 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
 #| fig.cap: "Figure 4. Rows represent different flight boxes (see Fig 2.), columns different days."
 #| code-fold: true
 #| fig.show: "hold"
-#| out.width: 60%
-#| fig.asp: .3
+#| out.width: 100%
+#| fig.asp: 1
 ##| out.height: 30%
 
   #ID by day of year
@@ -486,51 +486,51 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
       st_drop_geometry(),by = c("ID"="id"))%>%
       filter(month %in% c(10,11,12))-> temp
 
-    # temp %>%
-    #   ggplot() +
-    #   geom_tile(mapping = aes(x = doy,
-    #                           y = ordered_id,
-    #                           fill = mean))+
-    #   scale_fill_gradient(low = "white",
-    #                       high = "magenta")+
-    #   facet_wrap(~year)+
-    #     scale_x_continuous(breaks = temp$julian_label,
-    #                        labels = temp$month_label)+
-    #   labs(fill="Mean\nWind\nSpeed\n(m/s)",
-    #        y="Flight Box ID",
-    #        x = "Day of Year")+
-    #     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    temp %>%
+      ggplot() +
+      geom_tile(mapping = aes(x = day_of_year,
+                              y = ordered_id,
+                              fill = median))+
+      scale_fill_gradient(low = "white",
+                          high = "magenta")+
+      facet_wrap(~year)+
+        scale_x_continuous(breaks = temp$julian_label,
+                           labels = temp$month_label)+
+      labs(fill="Median\nWind\nSpeed\n(m/s)",
+           y="Flight Box ID",
+           x = "Day of Year")+
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 
-    for(i in unique(temp$year)){
-    
-    
-      temp %>%
-        filter(year == i)%>%
-        ggplot() +
-        geom_tile(mapping = aes(x = day_of_year,
-                                y = ordered_id,
-                                fill = median))+
-        scale_fill_gradient(low = "white",
-                            high = "magenta")+
-          scale_x_continuous(breaks = temp%>%
-                               filter(year==i) %>%
-                               pull(julian_label),
-                             labels = temp%>%
-                               filter(year==i)%>%
-                               pull(month_label),
-                             limits = c(min(temp$julian_label),
-                                        max(temp$julian_label)))+
-        labs(fill="Median\nCloud\nCover",
-             y="Flight Box ID",
-             x = "Day of Year",
-             title = i) -> tt
-      
-      plot(tt)
-      
-      
-      
-    }
+    # for(i in unique(temp$year)){
+    # 
+    # 
+    #   temp %>%
+    #     filter(year == i)%>%
+    #     ggplot() +
+    #     geom_tile(mapping = aes(x = day_of_year,
+    #                             y = ordered_id,
+    #                             fill = median))+
+    #     scale_fill_gradient(low = "white",
+    #                         high = "magenta")+
+    #       scale_x_continuous(breaks = temp%>%
+    #                            filter(year==i) %>%
+    #                            pull(julian_label),
+    #                          labels = temp%>%
+    #                            filter(year==i)%>%
+    #                            pull(month_label),
+    #                          limits = c(min(temp$julian_label),
+    #                                     max(temp$julian_label)))+
+    #     labs(fill="Median\nWind\nSpeed",
+    #          y="Flight Box ID",
+    #          x = "Day of Year",
+    #          title = i) -> tt
+    #   
+    #   plot(tt)
+    #   
+    #   
+    #   
+    # }
 
 
 
@@ -629,6 +629,8 @@ In order to estimate how successful our campaign might be, we conducted a simula
 #| out.width: 100%
 #| strip.white: TRUE
 #| fig.cap: "Figure 7. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
+#| code-fold: true
+
      
   #code underlying simulations available in the file "R/flight_window.R"
 
@@ -704,6 +706,8 @@ The underlying code for the analysis is available at: https://github.com/BioSCap
 #| out.width: 100%
 #| strip.white: TRUE
 #| fig.cap: "Figure 8. Estimated length of time needed to finish campaign. The dark grey area represents the 50% CI, the light gray the  90% CI, and the solid line represents the median."
+#| code-fold: true
+
      
   #code underlying simulations available in the file "R/flight_window.R"
 
