@@ -305,6 +305,7 @@ We also did spatiotemporal aggregations of mean wind speed by month and flight b
       summarize(mean_cc = median(na.omit(wgt_median_wind_speed)))%>%
       inner_join(x = boxes_sf,
                  by = c("id"="ID"))%>%
+      mutate(month = lubridate::month(month,label = TRUE)) %>%
       ggplot(mapping = aes(fill = mean_cc))+
       geom_sf()+
       geom_sf(data = domain_sf,
@@ -323,6 +324,7 @@ We also did spatiotemporal aggregations of mean wind speed by month and flight b
       summarize(mean_cc = mean(na.omit(mean)))%>%
       inner_join(x = boxes_sf,
                  by = c("id"="id"))%>%
+      mutate(month = lubridate::month(month,label = TRUE)) %>%
       ggplot(mapping = aes(fill = mean_cc))+
       geom_sf()+
       geom_sf(data = domain_sf,
