@@ -392,6 +392,7 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
   #ID by day of year
   
     cloud_table %>%
+        mutate(date = as.Date(day_of_year,origin="2022-12-31")) %>% #this line is a bit of a hack
         mutate(start_of_month = floor_date(as_date(date),unit = "month"),
                month_label = month(start_of_month,label = TRUE),
                julian_label = yday(start_of_month),
@@ -472,8 +473,8 @@ To visualize temporal patterns in cloud cover, we calculated the mean cloud cove
   #ID by day of year
   
     era5_wind_table %>%
-        mutate(date = as_date(time))%>%
-        #mutate(date = as.Date(doy,origin="2022-12-31")) %>%
+        mutate(date = as.Date(doy,origin="2022-12-31")) %>% #this line is a bit of a hack
+        #mutate(date = as_date(time))%>%
         mutate(start_of_month = floor_date(date,unit = "month"),
                month_label = month(start_of_month,label = TRUE),
                julian_label = yday(start_of_month),
