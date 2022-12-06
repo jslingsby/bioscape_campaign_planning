@@ -168,7 +168,8 @@ library(terra)
                           mean_cloud_cover = NA,
                           median_wind_speed = NA,
                           prop_cells_above_wind_threshold = NA,
-                          cells_above_wind_threshold = NA)
+                          cells_above_wind_threshold = NA,
+                          comments = NA)
     
     
       for(d in sampling_start:sampling_end){
@@ -179,14 +180,33 @@ library(terra)
         
         # Pull the cloud data
         
-            #sanity check
+            # sanity check
               cloud_table %>%
                 filter(unix_date == d)%>%
                 nrow() -> daily_options
             
               if(daily_options > 20){stop("Check code")}
-        
+              
+            # Enforce maximum of 6 consecutive days flying rule
+              
+              if(d > sampling_start){
+                
+                out_d %>%
+                  filter(date %in% (d-6):(d-1)) %>%
+                  summarize(fract_week_worked = sum(!is.na(cloud_cover))/6) -> previous_week_summary
+                
+                if(previous_week_summary$fract_week_worked == 1){
+                  
+                  
+                  out_d$comments[which(out_d$date == d)] <- "7th day restriction"
+                  
+                  next
+                  
+                }
+              }
+
         # Filter on cloud cover first
+              
           cloud_table %>%
             filter(unix_date == d) %>% #filter to date
             filter(mean <= quality_threshold) %>% #filter by cloud threshold

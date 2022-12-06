@@ -417,7 +417,7 @@ team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_
 # Convert clusters to polygons
   k_raster_domain %>%
     mask(vect(acceptable_sites)) %>%
-      terra::as.polygons()%>%
+      terra::as.polygons() %>%
     st_as_sf() -> cluster_polys
 
 #Make wgs84 versions

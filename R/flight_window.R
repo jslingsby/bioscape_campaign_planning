@@ -4,7 +4,7 @@
 # Algorithm thoughts:
 
   # Initialize an empty output file
-  # iterate through all the day in the time series:
+  # iterate through all the days in the time series:
       # if there is an X day period following that day, continue.  else, skip
       # rank the sites to be sampled in decreasing order of mean cloud cover over time
         # sample the highest ranking (== hardest to sample) site that is below 10% cloud cover that day
@@ -79,12 +79,15 @@ library(lubridate)
                             end_date = sampling_end,
                             date = sampling_start:sampling_end,
                             box_id = NA,
-                            cloud_cover = NA)
+                            cloud_cover = NA,
+                            comments = NA)
         
         
         for(d in sampling_start:sampling_end){
           
-          #Make sure there are no more than 20 options (sanity check)
+          #if(d == sampling_start+2){stop()}
+          
+          # Make sure there are no more than 20 options (sanity check)
           
             cloud_table %>%
               filter(unix_date == d)%>%
@@ -92,7 +95,24 @@ library(lubridate)
             
             if(daily_options > 20){stop("Check code")}
           
+          # Enforce maximum of 6 consecutive days flying rule
           
+            if(d > sampling_start){
+              
+              out_d %>%
+                filter(date %in% (d-6):(d-1)) %>%
+                summarize(fract_week_worked = sum(!is.na(cloud_cover))/6) -> previous_week_summary
+              
+              if(previous_week_summary$fract_week_worked == 1){
+                
+                
+                out_d$comments[which(out_d$date == d)] <- "7th day restriction"
+                
+                next
+                
+                }
+            }
+
           #Get a list of sites to be sampled
 
             potential_sites <- priorities$id[which(!priorities$id %in% out_d$box_id)]
@@ -104,6 +124,7 @@ library(lubridate)
               filter(mean <= quality_threshold) %>% #filter by threshold
               filter(id %in% potential_sites) %>% #toss sites that have already been done
               left_join(priorities) %>% #combine with prioritizaton
+              ungroup() %>% #if this is ommitted, slice_max returns multiple values
               slice_max(order_by = rank, n = 1) -> priority_d
             
             if(nrow(priority_d)==0){next} #if nothing matches the criteria, move along
@@ -111,7 +132,6 @@ library(lubridate)
           # record the data
             out_d$box_id[which(out_d$date==d)] <-priority_d$id
             out_d$cloud_cover[which(out_d$date==d)] <-priority_d$mean
-            
             
             #head(cloud_table)    
           
@@ -125,12 +145,7 @@ library(lubridate)
     }
     
     
-    #check on warning message
-    # In out_d$box_id[which(out_d$date == d)] <- priority_d$id :
-    #   number of items to replace is not a multiple of replacement length
-    # 48: In out_d$cloud_cover[which(out_d$date == d)] <- priority_d$mean :
-    
-    
+
 #####################################################################
     #saveRDS(object = simulation_output,file = "data/temp/sim_output_01pct.RDS")
   #saveRDS(object = simulation_output,file = "data/temp/sim_output_05pct.RDS")
