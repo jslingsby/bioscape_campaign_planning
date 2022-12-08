@@ -1,6 +1,12 @@
 #' @description Sampling design for BIOSCAPE
 #' @author Brian Maitner
 
+# Install packages if needed
+
+  # install.packages(c("gdalUtils", "httr", "ncdf4", "qpdf", "raster", "RCurl", "RefManageR", "rgdal", "stringr", "sf", "sp", "svMisc", "utils"), dependencies = TRUE)
+  # devtools::install_version("gdalUtils")
+
+
 # Load packages
 library(googledrive)
 library(terra)
@@ -9,10 +15,10 @@ library(stars)
 library(sf)
 library(movecost) #https://www.sciencedirect.com/science/article/pii/S2352711019302341#fig2
 library(piggyback)
-library(ClimDatDownloadR)
 library(rgee)
 source("R/get_park_polygons.R")
 source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_pb_download.R")
+source("https://raw.githubusercontent.com/AdamWilsonLab/emma_envdata/main/R/robust_download_file.R")
 source("R/count_spei_anomalies.R")
 
 
@@ -531,12 +537,57 @@ source("R/count_spei_anomalies.R")
       
     # get climate data
   
-      ClimDatDownloadR::Chelsa.Clim.download(save.location = "data/climate/",
-                                             parameter = "bio",
-                                             bio.var = c(1,12,15))
+      if(getOption('timeout') < 1000 ){
+        
+        options(timeout = 1000)
+        
+      }
+  
+      bio_vec <-
+        c("01","12","15")
+      
+
+      if(!dir.exists("data/climate/")){dir.create("data/climate/",recursive = TRUE)}
+
+      for(i in bio_vec){
+        
+        robust_download_file(url = paste("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_",i,".tif",sep = ""),
+                             destfile = file.path("data/climate/",paste("CHELSA_bio10_",i,"_V1.2.tif",sep = "")),
+                             max_attempts = 10,
+                             sleep_time = 10
+        )
+        
+        # load
+        rast_i <- terra::rast(file.path("data/climate/",paste("CHELSA_bio10_",i,"_V1.2.tif",sep = "")))
+        
+        # transform domain if needed
+        
+        if(!exists("domain_tf")){
+          
+          domain %>%
+            st_transform(crs = st_crs(rast_i)) -> domain_tf
+          
+        }
+        
+        # crop
+        
+        rast_i <- terra::crop(x = rast_i,
+                              y = ext(domain_tf))
+
+        # save raster
+        terra::writeRaster(x = rast_i,
+                           filename = file.path("data/climate/",paste("CHELSA_bio10_",i,"_V1.2.tif",sep = "")),
+                           overwrite = TRUE)
+        
+
+        rm(rast_i)
+        
+      }
+      
+      rm(i,bio_vec)
       
       # read in data
-        climate <- terra::rast(list.files("data/climate/bio/bio_V1.2/",
+        climate <- terra::rast(list.files("data/climate",
                                         full.names = TRUE))
       
       #crop climate data (crop before projecting to make it easier)
