@@ -60,12 +60,13 @@ library(lubridate)
         
         sampling_end <- sampling_start + time_window - 1
       
-      #check whether there is date for 90% of the  week window
+      #check whether there is data for 90% of the  time window
         
         cloud_table %>%
+          ungroup()%>%
           dplyr::select(unix_date)%>%
           unique()%>%
-          filter(unix_date %in% sampling_start:sampling_end)%>%
+          filter(unix_date %in% sampling_start:sampling_end) %>%
           nrow() -> sampling_days
       
       #don't bother if there aren't enough days to sample
@@ -161,6 +162,7 @@ library(lubridate)
     
     simulation_output %>%
       #filter(start_date==11229)%>%
+      dplyr::select(-comments)%>%
       na.omit()%>%
       group_by(start_date)%>%
       summarise(sites_done = sum(!is.na(box_id)),
@@ -174,6 +176,7 @@ library(lubridate)
     unique(sim_summary$sites_done)
     
     simulation_output %>%
+      dplyr::select(-comments)%>%
       na.omit()%>%
       group_by(start_date)%>%
       summarise(sites_done = sum(!is.na(box_id)),
@@ -189,6 +192,7 @@ library(lubridate)
       facet_wrap(~year)
     
     simulation_output %>%
+      dplyr::select(-comments)%>%
       na.omit()%>%
       group_by(start_date)%>%
       summarise(sites_done = sum(!is.na(box_id)),
@@ -208,7 +212,8 @@ library(lubridate)
     
     #readRDS("data/temp/sim_output_10pct.RDS")%>%
     readRDS("data/temp/sim_output_05pct.RDS")%>%
-    #readRDS("data/temp/sim_output_01pct.RDS")%>%  
+    #readRDS("data/temp/sim_output_01pct.RDS")%>%
+      dplyr::select(-comments)%>%
       na.omit()%>%
       group_by(start_date)%>%
       summarise(sites_done = sum(!is.na(box_id)),
@@ -217,6 +222,7 @@ library(lubridate)
       ungroup()%>%
       mutate(day_of_year = yday(as_date(start_date)),
              year = year(as_date(start_date)))%>%
+      filter(year != 2022)%>%
       group_by(day_of_year)%>%
     summarise(q0 = quantile(days_taken,probs=0),
                 q25 = quantile(days_taken,probs=0.05),

@@ -103,9 +103,10 @@ dist_from_water <- rast("data/output/distance_from_freshwater.tif")
 
 drought <- terra::rast("data/output/drought.tif")
         
-climate <- terra::rast(list.files("data/climate/bio/bio_V1.2/",
+climate <- terra::rast(list.files("data/climate",
                                           full.names = TRUE)) %>%
-            terra::resample(y = dist_from_water)
+            terra::project(y = dist_from_water)
+
 
 soil_depth <- rast("data/output/soil_depth_ISDASOIL.tif")[[1]]
 
@@ -188,19 +189,22 @@ names(k_raster_domain)<-"cluster"
 
 
 # make a data frame of the whole domain for plotting
-k_raster_domain %>%
-  mask(vect(acceptable_sites)) %>%
-  as.factor() %>%
-  as.data.frame(xy = TRUE) %>%
-  na.omit()%>%
-  mutate(cluster = as.factor(cluster))-> k_df_domain_masked  
+  k_raster_domain %>%
+    mask(mask = acceptable_sites %>%
+           st_transform(crs = st_crs(k_raster_domain))%>%
+           vect())%>%
+    as.factor() %>%
+    as.data.frame(xy = TRUE) %>%
+    na.omit()%>%
+    mutate(cluster = as.factor(label))-> k_df_domain_masked  
+
 
 #make a data frame of the focal areas
 k_raster_domain %>%
   as.factor() %>%
   as.data.frame(xy = TRUE) %>%
   na.omit()%>%
-  mutate(cluster = as.factor(cluster))-> k_df_domain
+  mutate(cluster = as.factor(label))-> k_df_domain
 
 #plot the clusters
 ggplot(data = k_df_domain) +
@@ -352,6 +356,7 @@ ggplot(data = k_df_w_climate,
 
 # Make a raster version of vegmap for simplicity
   vegmap %>%
+    filter(BIOME_18 != "<Null>") %>% #null category throws an error in more recent versions of terra
     vect() %>%
     terra::rasterize(y = k_raster_domain,
                      field = "BIOME_18") -> biome_raster
@@ -360,12 +365,14 @@ ggplot(data = k_df_w_climate,
 #data frames of the focal areas
   biome_raster %>%
     as.data.frame(xy = TRUE) %>%
-    na.omit()-> biome_df_domain
-
+    na.omit() -> biome_df_domain
+  
   biome_raster %>%
-    mask(vect(acceptable_sites)) %>%
+    mask(mask = acceptable_sites %>%
+           st_transform(crs = st_crs(biome_raster)) %>%
+           vect()) %>%
     as.data.frame(xy = TRUE) %>%
-    na.omit()-> biome_df_domain_masked  
+    na.omit() -> biome_df_domain_masked  
 
 #Plot the number of cells in each biome
 biome_df_domain %>%
@@ -408,7 +415,7 @@ The map below is interactive and allows zooming, moving, and toggling layers on/
 
 #Pull in other bioscape layers
 
-flights <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg",quiet = TRUE)%>%
+flights <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221026_flightboxes.gpkg",quiet = TRUE) %>%
     st_transform(crs = st_crs(4326))
 
 team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_polygons.gpkg",quiet = TRUE)%>%
@@ -416,11 +423,13 @@ team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_
 
 # Convert clusters to polygons
   k_raster_domain %>%
-    mask(vect(acceptable_sites)) %>%
+    mask(mask = acceptable_sites %>%
+           st_transform(crs = st_crs(k_raster_domain))%>%
+           vect()) %>%
       terra::as.polygons() %>%
     st_as_sf() -> cluster_polys
 
-#Make wgs84 versions
+# Make wgs84 versions
   cluster_polys %>%
     st_transform(crs = st_crs(4326)) -> cluster_polys_wgs84
   
@@ -429,19 +438,21 @@ team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_
   
   sampling_options %>%
     st_transform(crs = st_crs(4326)) -> sampling_options_wgs84
+  
+# Save the cluster polygons
+  cluster_polys_wgs84 %>%
+  saveRDS(file = "data/output/cluster_polygons.gpkg")
 
-#Make a palette
-pal <- colorFactor(palette = "Set1",
-                    domain = unique(cluster_polys_wgs84$cluster))
+# Make a palette
+  pal <- colorFactor(palette = "Set1",
+                      domain = unique(cluster_polys_wgs84$cluster))
 
-#Make lables
-labels <- sprintf(paste("Cluster: ",as.character(cluster_polys_wgs84$cluster),sep = "")) %>%
-  lapply(htmltools::HTML)
-
-labels2 <- sprintf(as.character(sampling_options_wgs84$park_name)) %>%
-  lapply(htmltools::HTML)
-
-
+# Make lables
+  labels <- sprintf(paste("Cluster: ",as.character(cluster_polys_wgs84$cluster),sep = "")) %>%
+    lapply(htmltools::HTML)
+  
+  labels2 <- sprintf(as.character(sampling_options_wgs84$park_name)) %>%
+    lapply(htmltools::HTML)
 
 leaflet(data = cluster_polys_wgs84) %>%
   addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
