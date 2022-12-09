@@ -402,7 +402,8 @@ biome_df_domain %>%
 
 ### Interactive map
 
-The map below is interactive and allows zooming, moving, and toggling layers on/off.
+The map below is interactive and allows zooming, moving, and toggling layers on/off. The cluster polygons are available <u><a href="https://github.com/BioSCape-io/campaign_planning/raw/main/data/output/cluster_polygons.gpkg">here</a>.</u> 
+
 ```{r leaflet plot of clusters}
 #| echo: FALSE
 #| message: false
