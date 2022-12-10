@@ -137,7 +137,7 @@ library(terra)
     
     sampling_end <- sampling_start + time_window - 1
     
-    #check whether there is data for 90% of the time window
+    #check whether there are data for 90% of the time window
     
       cloud_table %>%
         dplyr::select(unix_date)%>%
@@ -193,7 +193,7 @@ library(terra)
                 
                 out_d %>%
                   filter(date %in% (d-6):(d-1)) %>%
-                  summarize(fract_week_worked = sum(!is.na(cloud_cover))/6) -> previous_week_summary
+                  summarize(fract_week_worked = sum(!is.na(mean_cloud_cover))/6) -> previous_week_summary
                 
                 if(previous_week_summary$fract_week_worked == 1){
                   
@@ -232,7 +232,7 @@ library(terra)
         # load the wind data raster to get specific details  
           
           era_speed[[era_md$layer_id[which(era_md$unix_date == d)]]] %>%
-          extract(y = vect(boxes[priority_d$ID,]), cells=TRUE) -> focal_raster_data
+          terra::extract(y = vect(boxes[priority_d$ID,]), cells=TRUE) -> focal_raster_data
                 
           
           focal_raster_data %>%
