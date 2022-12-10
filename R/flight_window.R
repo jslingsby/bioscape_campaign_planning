@@ -30,7 +30,7 @@ library(lubridate)
     
     time_window <- 42 # the number of consecutive days you will be flying
     
-    quality_threshold <- 0.01 #the maximum fraction of cloudy pixels to accept within a flight box
+    quality_threshold <- 0.10 #the maximum fraction of cloudy pixels to accept within a flight box
     
     cloud_table %>%
       mutate(unix_date = as.numeric(as_date(date))) -> cloud_table
@@ -148,7 +148,7 @@ library(lubridate)
     
 
 #####################################################################
-    #saveRDS(object = simulation_output,file = "data/temp/sim_output_01pct.RDS")
+  #saveRDS(object = simulation_output,file = "data/temp/sim_output_01pct.RDS")
   #saveRDS(object = simulation_output,file = "data/temp/sim_output_05pct.RDS")
   #saveRDS(object = simulation_output,file = "data/temp/sim_output_10pct.RDS")    
     
@@ -210,8 +210,8 @@ library(lubridate)
     
     head(sim_summary)
     
-    #readRDS("data/temp/sim_output_10pct.RDS")%>%
-    readRDS("data/temp/sim_output_05pct.RDS")%>%
+    readRDS("data/temp/sim_output_10pct.RDS")%>%
+    #readRDS("data/temp/sim_output_05pct.RDS")%>%
     #readRDS("data/temp/sim_output_01pct.RDS")%>%
       dplyr::select(-comments)%>%
       na.omit()%>%

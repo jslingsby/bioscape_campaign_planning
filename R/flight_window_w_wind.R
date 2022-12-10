@@ -74,7 +74,7 @@ library(terra)
     
   time_window <- 42 # the number of consecutive days you will be flying
 
-  quality_threshold <- 0.10 #the maximum fraction of cloudy pixels to accept within a flight box
+  quality_threshold <- 0.01 #the maximum fraction of cloudy pixels to accept within a flight box
   
   max_wind_speed <- 5 #m/s
   
