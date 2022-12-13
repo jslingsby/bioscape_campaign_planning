@@ -439,10 +439,13 @@ team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_
   sampling_options %>%
     st_transform(crs = st_crs(4326)) -> sampling_options_wgs84
   
+  plot(cluster_polys_wgs84)
+  
 # Save the cluster polygons
   cluster_polys_wgs84 %>%
-  saveRDS(file = "data/output/cluster_polygons.gpkg")
-
+    st_write(dsn = "data/output/cluster_polygons.gpkg",
+             append=FALSE)
+  
 # Make a palette
   pal <- colorFactor(palette = "Set1",
                       domain = unique(cluster_polys_wgs84$cluster))
