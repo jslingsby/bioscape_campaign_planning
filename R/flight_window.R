@@ -210,9 +210,9 @@ library(lubridate)
     
     head(sim_summary)
     
-    readRDS("data/temp/sim_output_10pct.RDS")%>%
+    #readRDS("data/temp/sim_output_10pct.RDS")%>%
     #readRDS("data/temp/sim_output_05pct.RDS")%>%
-    #readRDS("data/temp/sim_output_01pct.RDS")%>%
+    readRDS("data/temp/sim_output_01pct.RDS")%>%
       dplyr::select(-comments)%>%
       na.omit()%>%
       group_by(start_date)%>%
