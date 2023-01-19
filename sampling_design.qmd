@@ -439,7 +439,7 @@ team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_
   sampling_options %>%
     st_transform(crs = st_crs(4326)) -> sampling_options_wgs84
   
-  plot(cluster_polys_wgs84)
+  #plot(cluster_polys_wgs84)
   
 # Save the cluster polygons
   cluster_polys_wgs84 %>%
@@ -507,6 +507,89 @@ leaflet(data = cluster_polys_wgs84) %>%
     options = layersControlOptions(collapsed = FALSE),
     position = "topright")
 
+
+
+```
+
+
+# Distribution of clusters across parks
+
+
+```{r}
+
+sampling_options %>%
+  st_intersection(y = cluster_polys %>%
+                    st_transform(crs = st_crs(sampling_options))) %>%
+  group_by(cluster, park_name)%>%
+  summarise(geom = st_union(geom)) %>%
+  ungroup()%>%
+  mutate(area_in_park = st_area(geom)) -> clusters_in_parks
+
+clusters_in_parks %>%
+  group_by(cluster) %>%
+  mutate(total_area_in_parks = sum(area_in_park)) %>%
+  ungroup() %>%
+  group_by(park_name,cluster) %>%
+  mutate(frac_in_park = sum(area_in_park)/total_area_in_parks) %>%
+  mutate(frac_in_park = round(x = frac_in_park,digits = 2))-> clusters_in_parks
+
+sampling_options %>%
+  ggplot()+
+  geom_sf()+
+  geom_sf(data = sampling_options %>%
+            filter(park_name == "Tankwa-Karoo National Park"),
+          fill="red")
+
+clusters_in_parks %>%
+  group_by(park_name)%>%
+  summarise(frac_sum = sum(frac_in_park),
+            mean_frac = mean(frac_in_park),
+            n_clusters = n()) %>%
+  st_drop_geometry() %>%
+  full_join(y = sampling_options %>%
+              group_by(park_name)%>%
+              summarize(park_area = st_area(geom) %>% sum) %>%
+              st_drop_geometry()) %>%
+  filter(!is.na(n_clusters))-> cluster_per_park_summary
+
+clusters_in_parks %>%
+  group_by(cluster) %>%
+  summarise(parks_occupied = n(),
+            max_fract_per_park = max(frac_in_park) ) %>%
+  st_drop_geometry() -> park_per_cluster_summary
+
+clusters_in_parks %>%
+  group_by(cluster)%>%
+  slice_max(frac_in_park) %>%
+  st_drop_geometry() %>%
+  select(cluster,frac_in_park,max_park = park_name)%>%
+  inner_join(y = park_per_cluster_summary,
+             by =c("cluster"="cluster",
+                   "frac_in_park"="max_fract_per_park" ) )%>%
+  rename(frac_in_max_park = frac_in_park,
+         total_parks_occupied = parks_occupied) -> max_coverage_per_park
+  
+length(unique(max_coverage_per_park$max_park))
+
+table(max_coverage_per_park$max_park)
+
+clusters_in_parks %>%
+  filter(park_name %in% c("Tankwa-Karoo National Park","Groot Swartberg Nature Reserve"))%>%
+  st_drop_geometry() %>%
+  pull(cluster)%>%
+  unique()%>%
+  length()
+
+# c("Tankwa-Karoo National Park","Groot Swartberg Nature Reserve") contain 12 clusters, and are the biggest parks for 9. Focusing on these first would be useful if we're faced with logistical challenges.
+
+
+
+
+library(units)
+ggplot(test,mapping = aes(x=park_area,
+                          y=n_clusters))+
+  geom_point()
+  test$n_clusters
 
 
 ```
