@@ -515,7 +515,7 @@ leaflet(data = cluster_polys_wgs84) %>%
 # Distribution of clusters across parks
 
 
-```{r}
+```{r,eval=FALSE,echo=FALSE}
 
 sampling_options %>%
   st_intersection(y = cluster_polys %>%
@@ -582,14 +582,6 @@ clusters_in_parks %>%
 
 # c("Tankwa-Karoo National Park","Groot Swartberg Nature Reserve") contain 12 clusters, and are the biggest parks for 9. Focusing on these first would be useful if we're faced with logistical challenges.
 
-
-
-
-library(units)
-ggplot(test,mapping = aes(x=park_area,
-                          y=n_clusters))+
-  geom_point()
-  test$n_clusters
 
 
 ```
