@@ -45,6 +45,9 @@ n15 %>%
 
 ```{r,eval=FALSE}
 
+paste("median" ,median(d4_sum$sites_done)," sites done with a Dec 4 end date")
+paste("median",median(n15_sum$sites_done),"sites done with a Nov 15 end date")
+
 data.frame(end_date = "12_04",
            d4_sum) %>%
   bind_rows(data.frame(end_date = "11_15",
@@ -57,6 +60,8 @@ data.frame(end_date = "12_04",
   stat_summary(fun.y=mean, geom="point", shape=23, size=2,fill="red")+
   ylab("Pct. boxes flown")+
   xlab("End Date")
+
+
   
 ```
 
@@ -83,14 +88,24 @@ d4%>%
   boxes %>%
     inner_join(d4_box,by = c("id" = "box_id"))%>%
     ggplot()+
-    geom_sf(mapping = aes(fill=fraction))
+    geom_sf(mapping = aes(fill=fraction))+
+    scale_fill_continuous(limits=c(0.3,1))+
+    ggtitle("Dec. 4")->dplot
   
+  boxes %>%
+    inner_join(n15box,by = c("id" = "box_id"))%>%
+    ggplot()+
+    geom_sf(mapping = aes(fill=fraction))+
+    scale_fill_continuous(limits=c(.3,1))+
+    ggtitle("Nov. 15")->nplot
   
-plot(boxes)  
 
 
-
-
+  
+library(ggpmisc)
+library(ggpubr)  
+  
+ggarrange(dplot,nplot,common.legend = TRUE,ncol = 1)
 
 ```
 
