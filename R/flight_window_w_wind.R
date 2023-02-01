@@ -74,7 +74,7 @@ library(terra)
     
   time_window <- 42 # the number of consecutive days you will be flying
 
-  quality_threshold <- 0.01 #the maximum fraction of cloudy pixels to accept within a flight box
+  quality_threshold <- 0.05 #the maximum fraction of cloudy pixels to accept within a flight box
   
   max_wind_speed <- 5 #m/s
   
@@ -244,9 +244,9 @@ library(terra)
 
             cell_matrix <- raster_matrix
             
-            for(i in 1:nrow(cell_matrix)){
+            for(j in 1:nrow(cell_matrix)){
               
-              cell_matrix[i,] <- focal_raster_data$cell[i]
+              cell_matrix[j,] <- focal_raster_data$cell[j]
             }
 
           focal_raster_data %>%
