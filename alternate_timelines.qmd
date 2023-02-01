@@ -3,7 +3,7 @@
 #23 October - 4 December (6 weeks)
 #23 October - 11 December (4 weeks)
 
-```{r,collapse=TRUE}
+```{r,collapse=TRUE,eval=FALSE}
 source("R/flight_sims_for_specific_days.R")
 
 
@@ -43,7 +43,7 @@ n15 %>%
 
 ```
 
-```{r}
+```{r,eval=FALSE}
 
 data.frame(end_date = "12_04",
            d4_sum) %>%
@@ -60,8 +60,33 @@ data.frame(end_date = "12_04",
   
 ```
 
-```{r}
+```{r,eval=FALSE}
 
+#which plots do we get/miss?
+
+boxes <- st_read("data/flight_planning/20221026_flightboxes.gpkg")
+boxes$id <- 1:20
+
+d4%>%
+  group_by(box_id)%>%
+  summarize(count = n(),
+            fraction = count/10) %>%
+    mutate(end_date = "12-04")->d4_box
+
+  n15 %>%
+  group_by(box_id)%>%
+  summarize(count = n(),
+            fraction = count/10)%>%
+            mutate(end_date = "11-15")->n15box
+
+
+  boxes %>%
+    inner_join(d4_box,by = c("id" = "box_id"))%>%
+    ggplot()+
+    geom_sf(mapping = aes(fill=fraction))
+  
+  
+plot(boxes)  
 
 
 
