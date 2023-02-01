@@ -47,13 +47,16 @@ n15 %>%
 
 data.frame(end_date = "12_04",
            d4_sum) %>%
-  bind_rows(data.frame(end_date = "12_11",
-                       d11_sum)
+  bind_rows(data.frame(end_date = "11_15",
+                       n15_sum)
   ) %>%
-  ggplot(mapping = aes(x=end_date,y=sites_done))+
+  mutate(pct_done = (sites_done/20)*100)%>%
+  ggplot(mapping = aes(x=end_date,y=pct_done))+
   geom_violin()+
-  geom_boxplot(width=0.1)+
-  stat_summary(fun.y=mean, geom="point", shape=23, size=2,fill="red")
+  geom_boxplot(width=0.1,fill="light grey")+
+  stat_summary(fun.y=mean, geom="point", shape=23, size=2,fill="red")+
+  ylab("Pct. boxes flown")+
+  xlab("End Date")
   
 ```
 
