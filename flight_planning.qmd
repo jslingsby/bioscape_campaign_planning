@@ -62,9 +62,7 @@ To assess potential cloud cover during the BioSCape campaign, here we use cloud 
     boxes_sf <- boxes
     
   # Download table from drive (to see the code underlying this or to update the data, see the file "R/mock_flights_earth_engine.R")
-    googledrive::drive_download(file = "EMMA/cloud_stats.csv",
-                                path = "data/test_cloud_stats.csv",
-                                overwrite = TRUE)
+    
     
     cloud_table <- read.csv("data/test_cloud_stats.csv")
 
@@ -637,11 +635,11 @@ In order to estimate how successful our campaign might be, we conducted a simula
      
   #code underlying simulations available in the file "R/flight_window.R"
 
-   
       #readRDS("data/temp/sim_output_10pct.RDS")%>%
       readRDS("data/temp/sim_output_05pct.RDS")%>%
         #readRDS("data/temp/sim_output_01pct.RDS")%>%  
-        na.omit()%>%
+        #na.omit()%>%
+        dplyr::filter(!is.na(box_id))%>%
         group_by(start_date)%>%
         summarise(sites_done = sum(!is.na(box_id)),
                   mean_cc = mean(na.omit(cloud_cover)),
@@ -717,7 +715,8 @@ The underlying code for the analysis is available at: https://github.com/BioSCap
    #readRDS("data/temp/sim_output_01_cloud_5ms_wind.RDS")%>%
      readRDS("data/temp/sim_output_05_cloud_5ms_wind.RDS")%>%
    #readRDS("data/temp/sim_output_10_cloud_5ms_wind.RDS")%>%
-        na.omit()%>%
+        #na.omit()%>%
+        dplyr::filter(!is.na(box_id))%>%
         group_by(start_date)%>%
         summarise(sites_done = sum(!is.na(box_id)),
                   mean_cc = mean(na.omit(mean_cloud_cover)),
