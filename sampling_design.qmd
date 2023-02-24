@@ -511,7 +511,8 @@ team_requests <- st_read("data/manual_downloads/BIOSCAPE_proposed/20221014_team_
 # Save the cluster polygons
   cluster_polys_wgs84 %>%
     st_write(dsn = "data/output/cluster_polygons.gpkg",
-             append=FALSE)
+             append=FALSE,
+             quiet = TRUE)
   
 # Make a palette
   pal <- colorFactor(palette = "Set1",
@@ -657,3 +658,250 @@ sampling_options%>%
 
 
 ```
+
+
+# Clustering - fynbos only
+
+```{r do fynbos clustering}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
+
+
+# Do clustering if needed
+
+if(!file.exists("temp/k_clusters_fynbos.rds")){
+  
+  #Mask data to fynbos using the vegmap
+  
+    vegmap %>%
+      filter(BIOME_18 == "Fynbos")%>%
+      select(BIOMEID_18)%>%
+      plot()
+  
+  fynbos_data <-
+  mask(x = c(climate,
+             soil_depth,
+             #dist_from_water,
+             drought),
+    mask = vegmap %>%
+      filter(BIOME_18 == "Fynbos")
+      )
+  
+  clim_vals_fynbos <-
+    terra::extract(x = fynbos_data,
+                   y = vect(st_transform(x = domain,
+                                         crs = crs(dist_from_water))),
+                   cells=TRUE,
+                   xy=TRUE)%>%
+    dplyr::select(-ID) %>%
+    na.omit()
+  
+  k_clusters_fynbos <- kmeans(x = clim_vals_fynbos %>%
+                                dplyr::select(-x,-y,-cell) %>%
+                                scale(),
+                              centers = 20,
+                              nstart = 1000,
+                              iter.max = 10000000)
+  
+  saveRDS(object = k_clusters_fynbos,
+          file = "temp/k_clusters_fynbos.rds")
+  
+}else{
+  
+  k_clusters_fynbos <- readRDS(file = "temp/k_clusters_fynbos.rds")
+  
+    fynbos_data <-
+      mask(x = c(climate,
+                 soil_depth,
+                 #dist_from_water,
+                 drought),
+           mask = vegmap %>%
+             filter(BIOME_18 == "Fynbos")
+           )
+  
+  clim_vals_fynbos <-
+    terra::extract(x = fynbos_data,
+                   y = vect(st_transform(x = domain,
+                                         crs = crs(dist_from_water))),
+                   cells=TRUE,
+                   xy=TRUE)%>%
+    dplyr::select(-ID) %>%
+    na.omit()
+
+  
+}
+
+
+
+
+```
+
+## Visualizing our fynbos clusters
+
+### Geographic space
+
+```{r cluster locations fynbos}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 20
+#| fig.height: 14
+#| strip.white: TRUE
+#| fig.cap: "Figure 2. Spatial distribution of clusters. Polygons denote focal sampling locations."
+
+
+k_raster_fynbos <- dist_from_water
+k_raster_fynbos[1:ncell(k_raster_fynbos)] <- NA
+k_raster_fynbos[clim_vals_fynbos$cell] <- k_clusters_fynbos$cluster
+
+varnames(k_raster_fynbos)  <- "cluster"
+names(k_raster_fynbos)<-"cluster"
+
+
+# make a data frame of the whole domain for plotting
+  k_raster_fynbos %>%
+    mask(mask = acceptable_sites %>%
+           st_transform(crs = st_crs(k_raster_fynbos))%>%
+           vect())%>%
+    as.factor() %>%
+    as.data.frame(xy = TRUE) %>%
+    na.omit()%>%
+    mutate(cluster = as.factor(label))-> k_df_fynbos_masked  
+
+
+#make a data frame of the focal areas
+k_raster_fynbos %>%
+  as.factor() %>%
+  as.data.frame(xy = TRUE) %>%
+  na.omit()%>%
+  mutate(cluster = as.factor(label))-> k_df_fynbos
+
+#plot the clusters
+ggplot(data = k_df_fynbos) +
+  geom_tile(aes(x = x, y = y, fill = cluster))+
+  scale_fill_discrete()+
+  geom_sf(data = st_transform(acceptable_sites,crs = crs(k_raster_domain)),fill=NA)+
+  geom_sf(data = st_transform(domain,crs = crs(k_raster_domain)),fill=NA)+
+  xlab(NULL)+
+  ylab(NULL)
+
+
+
+
+
+```
+
+```{r fynbos cluster histograms}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.width: 10
+#| fig.height: 10
+#| fig.cap: "Figure 3. Distribution of clusters across fynbos (grey) and focal regions (blue)."
+
+k_df_fynbos %>%
+  ggplot()+
+  geom_histogram(aes(cluster),stat = "count",fill="grey",group = "domain")+
+  geom_histogram(data = k_df_fynbos_masked,mapping = aes(cluster),fill = "blue",stat = "count",group = "focal")+
+  scale_fill_manual(name="group",values=c("blue","grey"),labels=c("domain","focal"))
+
+
+```
+
+
+### Environmental space
+
+```{r fynbos clusters in environmental space}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig.cap: "Figure 4. Mean Annual Temperature vs. Mean Annual Precipitation.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+
+#Examining our spread in climate space
+
+k_df_fynbos %>%
+  left_join(clim_vals_domain)-> k_df_w_climate
+
+k_df_fynbos_masked %>%
+  left_join(clim_vals_domain)-> k_df_masked_w_climate
+
+#temp and precip
+ggplot(data = k_df_w_climate,
+       mapping = aes(x=CHELSA_bio10_01_V1.2,
+                     y = CHELSA_bio10_12_V1.2
+       ))+
+  geom_point(col = "grey")+
+  geom_point(data = k_df_masked_w_climate,
+             mapping = aes(x=CHELSA_bio10_01_V1.2,
+                           y = CHELSA_bio10_12_V1.2,
+                           col = cluster))+
+  xlab("Mean Annual Temperature")+
+  ylab("Mean Annual Precipitation")
+
+
+
+
+```
+
+```{r fynbos seasonality and soil}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig.cap: "Figure 5. Precipitation Seasonality vs. Soil Depth.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+
+#season and soil
+ggplot(data = k_df_w_climate,
+       mapping = aes(x=CHELSA_bio10_15_V1.2,
+                     y = mean_0_200
+       ))+
+  geom_point(col = "grey")+
+  geom_point(data = k_df_masked_w_climate,
+             mapping = aes(x=CHELSA_bio10_15_V1.2,
+                           y = mean_0_200,
+                           col = cluster))+
+  xlab("seasonality")+
+  ylab("soil depth")
+
+
+
+```
+
+
+```{r fynbos distance to water and drought}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig-cap: "Figure 6. Precipitation vs. Drought.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+#Precipitation and droughts
+
+ggplot(data = k_df_w_climate,
+       mapping = aes(x=CHELSA_bio10_12_V1.2,
+                     y =sum
+       ))+
+  geom_point(col = "grey")+
+  geom_point(data = k_df_masked_w_climate,
+             mapping = aes(x=CHELSA_bio10_12_V1.2,
+                           y = sum,
+                           col = cluster))+
+  xlab("annual precipitation")+
+  ylab("drought")
+
+
+
+```
+
