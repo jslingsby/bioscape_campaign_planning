@@ -1003,7 +1003,7 @@ leaflet(data = fynbos_cluster_polys_wgs84) %>%
 
 ```
 
-# Distribution of clusters across parks
+# Abundance of clusters within parks
 
 
 ```{r,eval=TRUE,echo=FALSE}
@@ -1012,7 +1012,7 @@ leaflet(data = fynbos_cluster_polys_wgs84) %>%
 #| warning: false
 #| fig-cap: "Density of different clusters per park"
 #| fig.width: 10
-#| fig.height: 10
+#| fig.height: 5
 #| strip.white: TRUE
 
 sampling_options %>%
@@ -1081,27 +1081,14 @@ fynbos_clusters_in_parks %>%
   
   st_write(obj = fynbos_clusters_in_parks,
            dsn = "data/output/fynbos_clusters_in_parks.gpkg",
-           append = FALSE)  
+           append = FALSE,
+           quiet = TRUE)  
 
-fynbos_clusters_in_parks %>%
-  filter(park_name %in% c("Tankwa-Karoo National Park","Groot Swartberg Nature Reserve"))%>%
-  st_drop_geometry() %>%
-  pull(cluster)%>%
-  unique()%>%
-  length()
-
-# c("Tankwa-Karoo National Park","Groot Swartberg Nature Reserve") contain 12 clusters, and are the biggest parks for 9. Focusing on these first would be useful if we're faced with logistical challenges.
 
 sampling_options %>%
   inner_join(fynbos_cluster_per_park_summary) %>%
   ggplot()+
   geom_sf(mapping = aes(fill=n_clusters))
-
-sampling_options %>%
-  inner_join(fynbos_cluster_per_park_summary) %>%
-  ggplot()+
-  geom_sf(mapping = aes(fill=n_clusters))
-
 
 
 
