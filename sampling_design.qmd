@@ -750,7 +750,7 @@ if(!file.exists("temp/k_clusters_fynbos.rds")){
 #| fig.width: 20
 #| fig.height: 14
 #| strip.white: TRUE
-#| fig.cap: "Figure 2. Spatial distribution of clusters. Polygons denote focal sampling locations."
+#| fig.cap: "Figure 10. Spatial distribution of clusters. Polygons denote focal sampling locations."
 
 
 k_raster_fynbos <- dist_from_water
@@ -800,7 +800,7 @@ ggplot(data = k_df_fynbos) +
 #| warning: false
 #| fig.width: 10
 #| fig.height: 10
-#| fig.cap: "Figure 3. Distribution of clusters across fynbos (grey) and focal regions (blue)."
+#| fig.cap: "Figure 11. Distribution of clusters across fynbos (grey) and focal regions (blue)."
 
 k_df_fynbos %>%
   ggplot()+
@@ -818,7 +818,7 @@ k_df_fynbos %>%
 #| echo: false
 #| message: false
 #| warning: false
-#| fig.cap: "Figure 4. Mean Annual Temperature vs. Mean Annual Precipitation.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.cap: "Figure 12. Mean Annual Temperature vs. Mean Annual Precipitation.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
@@ -854,7 +854,7 @@ ggplot(data = k_df_w_climate,
 #| echo: FALSE
 #| message: false
 #| warning: false
-#| fig.cap: "Figure 5. Precipitation Seasonality vs. Soil Depth.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig.cap: "Figure 13. Precipitation Seasonality vs. Soil Depth.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
@@ -882,7 +882,7 @@ ggplot(data = k_df_w_climate,
 #| echo: FALSE
 #| message: false
 #| warning: false
-#| fig-cap: "Figure 6. Precipitation vs. Drought.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
+#| fig-cap: "Figure 14. Precipitation vs. Drought.  Colored dots represent clusters in the focal sites and grey areas represent the entire domain."
 #| fig.width: 10
 #| fig.height: 10
 #| strip.white: TRUE
@@ -904,4 +904,208 @@ ggplot(data = k_df_w_climate,
 
 
 ```
+
+
+
+```{r leaflet plot of fynbos clusters}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig-cap: "Figure 15. Sampling options within parks.  Park boundaries are denoted by black lines, sampling locations are colored by cluster. Additional polygons delimited current flight plans (white) and areas of interest indicated by BIOSCAPE PIs (brown)."
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+#Pull in other bioscape layers
+
+# Convert clusters to polygons
+  k_raster_fynbos %>%
+    mask(mask = acceptable_sites %>%
+           st_transform(crs = st_crs(k_raster_fynbos))%>%
+           vect()) %>%
+      terra::as.polygons() %>%
+    st_as_sf() -> fynbos_cluster_polys
+
+# Make wgs84 versions
+  fynbos_cluster_polys %>%
+    st_transform(crs = st_crs(4326)) -> fynbos_cluster_polys_wgs84
+  
+  #plot(cluster_polys_wgs84)
+  
+# Save the cluster polygons
+  fynbos_cluster_polys_wgs84 %>%
+    st_write(dsn = "data/output/fynbos_cluster_polygons.gpkg",
+             append=FALSE,
+             quiet = TRUE)
+  
+# Make a palette
+  pal <- colorFactor(palette = "Set1",
+                      domain = unique(fynbos_cluster_polys_wgs84$cluster))
+
+# Make labels
+  labels <- sprintf(paste("Cluster: ",as.character(fynbos_cluster_polys_wgs84$cluster),sep = "")) %>%
+    lapply(htmltools::HTML)
+  
+  labels2 <- sprintf(as.character(sampling_options_wgs84$park_name)) %>%
+    lapply(htmltools::HTML)
+
+leaflet(data = fynbos_cluster_polys_wgs84) %>%
+  addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
+  #addProviderTiles("NASAGIBS.ModisTerraTrueColorCR", group = "True Colors") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+  addMapPane("clusters", zIndex = 420) %>%
+  addMapPane("parks", zIndex = 410)%>% 
+  addPolygons(stroke = FALSE,
+              group = "Cluster",
+              color = ~pal(cluster),
+              fillOpacity = 1,
+              label = labels,
+              options = pathOptions(pane = "clusters"))%>%
+  addPolygons(data = domain_wgs84,
+              stroke = TRUE,
+              color = "grey",
+              fill = FALSE,
+              weight = 3) %>%
+    addPolygons(data = sampling_options_wgs84,
+              stroke = TRUE,
+              color = "black",
+              fill = TRUE,
+              weight = 2,
+              label = labels2,
+              fillColor = NA,
+              fillOpacity = 0,
+              group = "Park",
+              options = pathOptions(pane = "parks")) %>%
+      addPolygons(data = flights,
+                  stroke = TRUE,
+                  color = "white",
+                  group = "Flights") %>%
+      addPolygons(data = team_requests%>%
+                st_zm(drop = T, what = "ZM"),
+                  stroke = TRUE,
+                  color = "brown",
+                  group = "Requests")%>%  
+    addMouseCoordinates() %>%
+    #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
+  leaflet::addLegend(position = "bottomright",
+            pal = pal,
+            values = unique(fynbos_cluster_polys_wgs84$cluster),
+            opacity = 1,
+            title = "Cluster",
+            labels = unique(fynbos_cluster_polys_wgs84$cluster)) %>%
+    addLayersControl(
+    baseGroups = c("World Imagery","NatGeo"),
+    overlayGroups = c("Park","Flights","Cluster","Requests"),
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topright")
+
+
+
+```
+
+# Distribution of clusters across parks
+
+
+```{r,eval=TRUE,echo=FALSE}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig-cap: "Density of different clusters per park"
+#| fig.width: 10
+#| fig.height: 10
+#| strip.white: TRUE
+
+sampling_options %>%
+  st_intersection(y = fynbos_cluster_polys %>%
+                    st_transform(crs = st_crs(sampling_options))) %>%
+  group_by(cluster, park_name)%>%
+  summarise(geom = st_union(geom)) %>%
+  ungroup()%>%
+  mutate(area_in_park = st_area(geom)) -> fynbos_clusters_in_parks
+
+fynbos_clusters_in_parks %>%
+  group_by(cluster) %>%
+  mutate(total_area_in_parks = sum(area_in_park)) %>%
+  ungroup() %>%
+  group_by(park_name,cluster) %>%
+  mutate(frac_in_park = sum(area_in_park)/total_area_in_parks) %>%
+  mutate(frac_in_park = round(x = frac_in_park,digits = 2))-> fynbos_clusters_in_parks
+
+# sampling_options %>%
+#   ggplot()+
+#   geom_sf()+
+#   geom_sf(data = sampling_options %>%
+#             filter(park_name == "Tankwa-Karoo National Park"),
+#           fill="red")
+
+fynbos_clusters_in_parks %>%
+  group_by(park_name)%>%
+  summarise(frac_sum = sum(frac_in_park),
+            mean_frac = mean(frac_in_park),
+            n_clusters = n()) %>%
+  st_drop_geometry() %>%
+  full_join(y = sampling_options %>%
+              group_by(park_name)%>%
+              summarize(park_area = st_area(geom) %>% sum) %>%
+              st_drop_geometry()) %>%
+  filter(!is.na(n_clusters))-> fynbos_cluster_per_park_summary
+
+fynbos_clusters_in_parks %>%
+  group_by(cluster) %>%
+  summarise(parks_occupied = n(),
+            max_fract_per_park = max(frac_in_park) ) %>%
+  st_drop_geometry() -> fynbos_park_per_cluster_summary
+
+fynbos_clusters_in_parks %>%
+  group_by(cluster)%>%
+  slice_max(frac_in_park) %>%
+  st_drop_geometry() %>%
+  select(cluster,frac_in_park,max_park = park_name)%>%
+  inner_join(y = fynbos_park_per_cluster_summary,
+             by =c("cluster"="cluster",
+                   "frac_in_park"="max_fract_per_park" ) )%>%
+  rename(frac_in_max_park = frac_in_park,
+         total_parks_occupied = parks_occupied) -> fynbos_max_coverage_per_park
+  
+#save outputs as csv
+  write.csv(x = fynbos_park_per_cluster_summary,
+            file = "data/output/park_per_fynbos_cluster_summary.csv",
+            row.names = FALSE)
+  
+#save outputs as csv
+  write.csv(x = fynbos_cluster_per_park_summary,
+            file = "data/output/fynbos_cluster_per_park_summary.csv",
+            row.names = FALSE)  
+  
+#save output
+  
+  st_write(obj = fynbos_clusters_in_parks,
+           dsn = "data/output/fynbos_clusters_in_parks.gpkg",
+           append = FALSE)  
+
+fynbos_clusters_in_parks %>%
+  filter(park_name %in% c("Tankwa-Karoo National Park","Groot Swartberg Nature Reserve"))%>%
+  st_drop_geometry() %>%
+  pull(cluster)%>%
+  unique()%>%
+  length()
+
+# c("Tankwa-Karoo National Park","Groot Swartberg Nature Reserve") contain 12 clusters, and are the biggest parks for 9. Focusing on these first would be useful if we're faced with logistical challenges.
+
+sampling_options %>%
+  inner_join(fynbos_cluster_per_park_summary) %>%
+  ggplot()+
+  geom_sf(mapping = aes(fill=n_clusters))
+
+sampling_options %>%
+  inner_join(fynbos_cluster_per_park_summary) %>%
+  ggplot()+
+  geom_sf(mapping = aes(fill=n_clusters))
+
+
+
+
+
+```
+
 
