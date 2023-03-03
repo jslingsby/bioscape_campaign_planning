@@ -1,7 +1,7 @@
 ---
 title: "Sampling Design"
 author: "Brian Maitner"
-date: "10/6/2022"
+date: "3/3/2023"
 output: html_document
 ---
 
@@ -905,7 +905,7 @@ ggplot(data = k_df_w_climate,
 
 ```
 
-
+### Interactive Map of fynbos clusters
 
 ```{r leaflet plot of fynbos clusters}
 #| echo: FALSE
@@ -1003,14 +1003,13 @@ leaflet(data = fynbos_cluster_polys_wgs84) %>%
 
 ```
 
-# Abundance of clusters within parks
-
+### Abundance of clusters within parks
 
 ```{r,eval=TRUE,echo=FALSE}
 #| echo: FALSE
 #| message: false
 #| warning: false
-#| fig-cap: "Density of different clusters per park"
+#| fig-cap: "Fig. 16. Number of different clusters per park"
 #| fig.width: 10
 #| fig.height: 5
 #| strip.white: TRUE
