@@ -1095,4 +1095,97 @@ sampling_options %>%
 
 ```
 
+### Preliminary points on the map
+
+```{r}
+#| echo: FALSE
+#| message: false
+#| warning: false
+#| fig-cap: "Fig. 17. All of the above with points"
+#| fig.width: 10
+#| fig.height: 5
+#| strip.white: TRUE
+
+### Get number of samples per cluster in proportion to pixels in unmasked domain
+# Get nsamples
+nsamp <- k_df_w_climate %>% group_by(cluster) %>% summarize(n = floor(n()/nrow(k_df_w_climate)*300))
+
+set.seed(4563)
+
+# Convoluted code to sample in proportion to unmasked domain - see https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html
+fsamp <- k_df_masked_w_climate %>%
+  arrange(cluster) %>%
+  group_by(cluster) %>% 
+  nest() %>%            
+  ungroup() %>% 
+  mutate(n = nsamp$n) %>% 
+  mutate(samp = map2(data, n, sample_n)) %>% 
+  select(-data) %>%
+  unnest(samp)
+
+# Make spatial
+fsamp <- st_as_sf(fsamp, coords = c("x", "y"), crs = st_crs(k_raster_fynbos)) %>% st_transform(crs = st_crs(domain_wgs84))
+fsamp$UID <- 1:nrow(fsamp)
+
+### Map
+
+labels_plot <- sprintf(as.character(fsamp$UID)) %>%
+    lapply(htmltools::HTML)
+
+leaflet(data = fynbos_cluster_polys_wgs84) %>%
+  addProviderTiles("Esri.NatGeoWorldMap", group = "NatGeo") %>%
+  #addProviderTiles("NASAGIBS.ModisTerraTrueColorCR", group = "True Colors") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+  addMapPane("clusters", zIndex = 420) %>%
+  addMapPane("parks", zIndex = 410)%>% 
+  addPolygons(stroke = FALSE,
+              group = "Cluster",
+              color = ~pal(cluster),
+              fillOpacity = 0.5,
+              label = labels,
+              options = pathOptions(pane = "clusters"))%>%
+  addPolygons(data = domain_wgs84,
+              stroke = TRUE,
+              color = "grey",
+              fill = FALSE,
+              weight = 3) %>%
+    addPolygons(data = sampling_options_wgs84,
+              stroke = TRUE,
+              color = "black",
+              fill = TRUE,
+              weight = 2,
+              label = labels2,
+              fillColor = NA,
+              fillOpacity = 0,
+              group = "Park",
+              options = pathOptions(pane = "parks")) %>%
+      addPolygons(data = flights,
+                  stroke = TRUE,
+                  color = "white",
+                  group = "Flights") %>%
+      addPolygons(data = team_requests%>%
+                st_zm(drop = T, what = "ZM"),
+                  stroke = TRUE,
+                  color = "brown",
+                  group = "Requests")%>%  
+      addMarkers(data = fsamp,
+              #   color = "blue",
+              #   radius = 3,
+                  group = "Plots",
+                  label = labels_plot)%>%  
+    addMouseCoordinates() %>%
+    #addImageQuery(sampling_options_wgs84, type="mousemove", layerId = "park_name") %>%
+  leaflet::addLegend(position = "bottomright",
+            pal = pal,
+            values = unique(fynbos_cluster_polys_wgs84$cluster),
+            opacity = 1,
+            title = "Cluster",
+            labels = unique(fynbos_cluster_polys_wgs84$cluster)) %>%
+    addLayersControl(
+    baseGroups = c("World Imagery","NatGeo"),
+    overlayGroups = c("Park","Flights","Cluster","Requests","Plots"),
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topright")
+
+```
 
